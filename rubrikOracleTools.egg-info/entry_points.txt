@@ -1,0 +1,5 @@
+
+        [console_scripts]
+        oracle_backup_info=oracle_backup_info:cli
+        oracle_mount=oracle_mount:cli
+    
