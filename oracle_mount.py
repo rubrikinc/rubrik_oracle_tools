@@ -29,8 +29,9 @@ def cli(oracle_db_name, oracle_host_name, time_restore, host, files, path):
     oracle_db_id = get_oracle_db_id(oracle_db_name, oracle_host_name)
     oracle_db_info = get_oracle_db_info(oracle_db_id)
     rac = False
-    if oracle_db_info['racName']:
-        rac = True
+    if 'racName' in oracle_db_info.keys():
+        if oracle_db_info['racName']:
+            rac = True
     host_id = get_oracle_host_or_rac_id(host, rac)
     if time_restore:
         time_ms = epoch_time(time_restore, timezone)
