@@ -1,6 +1,6 @@
 {
-  "rubrik_cdm_node_ip": "172.21.8.51",
-  "rubrik_cdm_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3NmQ2YWMyZS1hZmY0LTQ1NDYtYTM1MS01YTkwNzgxYjk4MTJfZThjMjk5ZDYtZTQxOS00ZmY2LTkzNmMtYTA1OTBiMTRkZWYyIiwiaXNzIjoiNzZkNmFjMmUtYWZmNC00NTQ2LWEzNTEtNWE5MDc4MWI5ODEyIiwianRpIjoiYjllNjNhMjQtN2IxNC00NDE2LTk4ZjYtZTI4Y2YxNTQyZDFkIn0.u3xOe7jgu-tcAXRabcsp7syFYR0dDXw4IqDqSa5Tbxg",
+  "rubrik_cdm_node_ip": "",
+  "rubrik_cdm_token": "",
   "rubrik_cdm_username": "",
   "rubrik_cdm_password": ""
 }
