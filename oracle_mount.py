@@ -32,6 +32,13 @@ def cli(oracle_db_name, oracle_host_name, time_restore, host, files, path):
     if 'racName' in oracle_db_info.keys():
         if oracle_db_info['racName']:
             rac = True
+    if not host:
+        print("No live mount host entered, using the source host for a live mount of the requested backup set.")
+        host = oracle_host_name
+        files = True
+        if not path:
+            print("The Mount Path must be provided for a files only mount!")
+            exit(1)
     host_id = get_oracle_host_or_rac_id(host, rac)
     if time_restore:
         time_ms = epoch_time(time_restore, timezone)
@@ -46,7 +53,7 @@ def cli(oracle_db_name, oracle_host_name, time_restore, host, files, path):
     if files:
         if not path:
             print("The Mount Path must be provided for a files only mount!")
-            exit(0)
+            exit(1)
 
     print("Starting Live Mount of {} on {}.".format(oracle_db_name, host))
     live_mount_info = live_mount(oracle_db_id, host_id, time_ms, files_only=files, mount_path=path)
