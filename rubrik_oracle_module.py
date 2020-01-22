@@ -207,55 +207,61 @@ def live_mount_delete(rubrik, live_mount_id, force):
     return live_mount_delete_info
 
 
-def get_host_id(rubrik, hostname):
+def get_host_id(rubrik, primary_cluster_id, hostname):
     """
     Gets the Oracle database host using the hostname.
 
     Args:
         rubrik: A rubrik_connection_object
         hostname (str): The oracle host name
+        primary_cluster_id (str): The rubrik cluster id
 
     Returns:
         host_id (str): The host id
     """
     host_info = rubrik.get('internal', '/oracle/host?name={}'.format(hostname))
+    host_id = ''
     if host_info['total'] == 0:
         raise RubrikOracleModuleError("The host: {} was not found on the Rubrik CDM.".format(hostname))
     elif host_info['total'] > 1:
-        found_hosts = []
+        # found_hosts = []
         for hosts in host_info['data']:
-            found_hosts.append(hosts['id'])
-        raise RubrikOracleModuleError("Multiple Host IDs found: {} ".format(found_hosts))
+            if hosts['primaryClusterId'] == primary_cluster_id and hosts['status'] == 'Connected':
+                host_id = hosts['id']
+        # raise RubrikOracleModuleError("Multiple Host IDs found: {} ".format(found_hosts))
     else:
         host_id = host_info['data'][0]['id']
-        return host_id
+    return host_id
 
 
-def get_rac_id(rubrik, rac_cluster_name):
+def get_rac_id(rubrik, primary_cluster_id, rac_cluster_name):
     """
     Gets the RAC Cluster ID using the cluster name.
 
     Args:
         rubrik: A rubrik_connection_object.
         rac_cluster_name (str): The RAC cluster name.
+        primary_cluster_id (str): The rubrik cluster id
 
     Returns:
         rac_id (str): The RAC Cluster ID  if found otherwise will exit with error condition.
     """
     rac_info = rubrik.get('internal', '/oracle/rac?name={}'.format(rac_cluster_name))
+    rac_id = ''
     if rac_info['total'] == 0:
         raise RubrikOracleModuleError("The target: {} either was not found or is not a RAC cluster.".format(rac_cluster_name))
     elif rac_info['total'] > 1:
-        found_clusters = []
         for rac in rac_info['data']:
-            found_clusters.append(rac['id'])
-        raise RubrikOracleModuleError("Multiple RAC IDs found: {} ".format(found_clusters))
+            if rac['primaryClusterId'] == primary_cluster_id and rac['status'] == 'Connected':
+                rac_id = rac['id']
+                break
+        # raise RubrikOracleModuleError("Multiple RAC IDs found: {} ".format(found_clusters))
     else:
         rac_id = rac_info['data'][0]['id']
-        return rac_id
+    return rac_id
 
 
-def get_oracle_live_mount_id(rubrik, db_name, host_cluster):
+def get_oracle_live_mount_id(rubrik, primary_cluster_id, db_name, host_cluster):
     """
     This will search for and retrieve the live mount id for a live mount of the database on the host.
 
@@ -264,11 +270,13 @@ def get_oracle_live_mount_id(rubrik, db_name, host_cluster):
         db_name (str): The database name.
         host_cluster (str): The host or cluster name. If the live mount is on a cluster this can be the cluster name
         or the host name of one of the nodes in the cluster
+        primary_cluster_id (str): The rubrik cluster id
 
     Returns:
         live_mount_id (str): The id of the requested live mount.
     """
     oracle_live_mounts = rubrik.get('internal', '/oracle/db/mount?source_database_name={}'.format(db_name))
+    # Check if host_cluster is a RAC Cluster or a node in a RAC cluster so we can use the RAC cluster id
     rac_id = rubrik.get('internal', '/oracle/rac?name={}'.format(host_cluster))
     mount_host_id = ''
     if rac_id['total'] == 0:
@@ -277,16 +285,17 @@ def get_oracle_live_mount_id(rubrik, db_name, host_cluster):
             for nodes in rac['nodes']:
                 if nodes['nodeName'] == host_cluster:
                     mount_host_id = rac['id']
-                    break
             if mount_host_id:
                 break
-        if not mount_host_id:
-            mount_host_id = get_host_id(rubrik, host_cluster)
     elif rac_id['total'] == 1:
-        mount_host_id =  rac_id['data'][0]['id']
+        mount_host_id = rac_id['data'][0]['id']
     else:
-        raise RubrikOracleModuleError("Multiple RAC IDs found")
-    host_id = mount_host_id.split(':::')[1]
+        for rac in rac_id['data']:
+            if rac['primaryClusterId'] == primary_cluster_id and rac['status'] == 'Connected':
+                mount_host_id = rac['id']
+    if not mount_host_id:
+        mount_host_id = get_host_id(rubrik, primary_cluster_id, host_cluster)
+    host_id = mount_host_id .split(':::')[1]
     live_mount_id = []
     for mount in oracle_live_mounts['data']:
         if host_id == mount['targetHostId']:

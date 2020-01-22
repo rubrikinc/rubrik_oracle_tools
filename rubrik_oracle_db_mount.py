@@ -32,9 +32,9 @@ def cli(host_cluster_db, target_host, time_restore):
     # If source DB is RAC then the target for the live mount must be a RAC cluster
     if 'racName' in oracle_db_info.keys():
         if oracle_db_info['racName']:
-            host_id = rbk.get_rac_id(rubrik, target_host)
+            host_id = rbk.get_rac_id(rubrik, cluster_info['id'], target_host)
     else:
-        host_id = rbk.get_host_id(rubrik, target_host)
+        host_id = rbk.get_host_id(rubrik, cluster_info['id'], target_host)
     if time_restore:
         time_ms = rbk.epoch_time(time_restore, timezone)
         print("Using {} for mount.". format(time_restore))

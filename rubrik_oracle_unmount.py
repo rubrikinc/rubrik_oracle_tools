@@ -21,7 +21,7 @@ def cli(host_cluster_db, force):
     timezone = cluster_info['timezone']['timezone']
     print("Connected to cluster: {}, version: {}, Timezone: {}.".format(cluster_info['name'], cluster_info['version'], timezone))
     host_cluster_db = host_cluster_db.split(":")
-    live_mount_ids = rbk.get_oracle_live_mount_id(rubrik, host_cluster_db[1], host_cluster_db[0])
+    live_mount_ids = rbk.get_oracle_live_mount_id(rubrik, cluster_info['id'], host_cluster_db[1], host_cluster_db[0])
     if not live_mount_ids:
         raise RubrikOracleUnmountError("No live mounts found for {} live mounted on {}. ".format(host_cluster_db[1], host_cluster_db[0]))
     else:
