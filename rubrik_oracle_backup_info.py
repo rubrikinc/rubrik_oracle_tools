@@ -9,9 +9,10 @@ def cli(host_cluster_db):
     """
     Displays information about the Oracle database object, the available snapshots, and recovery ranges.
 
+\b
     Args:
         host_cluster_db (str): The hostname the database is running on : The database name
-
+\b
     Returns:
         None: Information is printed to standard out
     """

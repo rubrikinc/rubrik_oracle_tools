@@ -12,13 +12,14 @@ import json
 def cli(host_cluster_db, target_host, time_restore):
     """Live mount a Rubrik Oracle Backup.
 
+\b
     Gets the backup for the Oracle database on the Oracle database host and will live mount it on the host provided.
-
+\b
     Args:
         host_cluster_db (str): The hostname the database is running on : The database name
         target_host (str): The host to live mount the database. (Must be a compatible Oracle host on Rubrik)
         time_restore: The point in time for the live mount iso 8601 format (2019-04-30T18:23:21)
-
+\b
     Returns:
         live_mount_info (json); JSON text file with the Rubrik cluster response to the live mount request
     """

@@ -9,10 +9,11 @@ def cli(host_cluster_db, force):
     """
     This will unmount a Rubrik live mount using the database name and the live mount host.
 
+\b
     Args:
         host_cluster_db (str): The hostname the database is running on : The database name
         force (bool): Force the unmount
-
+\b
     Returns:
         unmount_info (dict): Status of the unmount request.
     """
@@ -25,10 +26,12 @@ def cli(host_cluster_db, force):
     if not live_mount_ids:
         raise RubrikOracleUnmountError("No live mounts found for {} live mounted on {}. ".format(host_cluster_db[1], host_cluster_db[0]))
     else:
+        unmount_info = []
         for live_mount_id in live_mount_ids:
-            unmount_info = rbk.live_mount_delete(rubrik, live_mount_id, force)
-            print("Live mount id: {} Unmount status: {}.".format(live_mount_id, unmount_info['status']))
-            return unmount_info
+            unmount_response = rbk.live_mount_delete(rubrik, live_mount_id, force)
+            print("Live mount id: {} Unmount status: {}.".format(live_mount_id, unmount_response['status']))
+            unmount_info.append(unmount_response)
+        return unmount_info
 
 
 class RubrikOracleUnmountError(rbk.NoTraceBackWithLineNumber):

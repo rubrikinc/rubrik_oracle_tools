@@ -14,15 +14,18 @@ def cli(host_cluster_db, path, time_restore, target_host):
     """
     This will mount the requested Rubrik Oracle backup set on the provided path.
 
+\b
     The source database is specified in a host:db format. The mount path is required. If the restore time is not
     provided the most recent recoverable time will be used. The host for the mount can be specified if it is not it
     will be mounted on the source host. If the source database is on a RAC cluster the target must be a RAC cluster.
+\b
     Args:
         host_cluster_db (str): The hostname the database is running on : The database name.
         path (str): The path for the mount. This must exist on the requested host.
         time_restore (str): The point in time for the backup set in  iso 8601 format (2019-04-30T18:23:21).
-        target_host (str): The host to mount the backup set. If not specified the source host will be used. IF source DB in on RAC this must be a RAC Cluster.
-
+        target_host (str): The host to mount the backup set. If not specified the source host will be used.
+                            IF source DB in on RAC this must be a RAC Cluster.
+\b
     Returns:
         live_mount_info (dict): The information about the requested files only mount returned from the Rubrik CDM.
     """

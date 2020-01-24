@@ -90,7 +90,7 @@ def get_oracle_db_recoverable_range(rubrik, oracle_db_id):
         Returns:
             oracle_db_recoverable_range_info (dict): The Rubrik CDM database recovery ranges.
     """
-    oracle_db_recoverable_range_info = rubrik.get('internal', '/oracle/db/{}/recoverable_range'.format(oracle_db_id))
+    oracle_db_recoverable_range_info = rubrik.get('internal', '/oracle/db/{}/recoverable_range'.format(oracle_db_id), timeout=60)
     return oracle_db_recoverable_range_info
 
 
@@ -105,7 +105,7 @@ def get_oracle_db_snapshots(rubrik, oracle_db_id):
         Returns:
             oracle_db_recoverable_range_info (dict): The Rubrik CDM database available snapshots.
     """
-    oracle_db_snapshot_info = rubrik.get('internal', '/oracle/db/{}/snapshot'.format(oracle_db_id))
+    oracle_db_snapshot_info = rubrik.get('internal', '/oracle/db/{}/snapshot'.format(oracle_db_id), timeout=60)
     return oracle_db_snapshot_info
 
 
@@ -134,10 +134,11 @@ def cluster_time(time_string, timezone):
     """
     Converts a time string in a timezone to a user friendly string in that time zone.
 
+\b
     Args:
         time_string (str): Time string.
         timezone (str): Time zone.
-
+\b
     Returns:
         time_string (str): Time string converted to the supplied time zone.
     """
