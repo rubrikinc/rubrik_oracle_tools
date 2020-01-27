@@ -1,9 +1,0 @@
-oracle_backup_info.py
-oracle_mount.py
-setup.py
-rubrikOracleTools.egg-info/PKG-INFO
-rubrikOracleTools.egg-info/SOURCES.txt
-rubrikOracleTools.egg-info/dependency_links.txt
-rubrikOracleTools.egg-info/entry_points.txt
-rubrikOracleTools.egg-info/requires.txt
-rubrikOracleTools.egg-info/top_level.txt
