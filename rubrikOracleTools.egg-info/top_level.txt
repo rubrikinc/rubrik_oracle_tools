@@ -1,2 +1,0 @@
-oracle_backup_info
-oracle_mount
