@@ -7,9 +7,9 @@ Some basic command line python scripts for managing Rubrik Oracle RBS backups.
 
 These scripts require python 3.7 or greater. This is generally not installed on most system and will need to be installed.
 
-Python 3.7 installation instructions for OEL/RHEL linux. 
+## Python 3.7 installation instructions for OEL/RHEL linux. 
 ------------------------------------------------------------
-# As root:
+As root:
 yum install gcc openssl-devel bzip2-devel libffi-devel
 
 cd /usr/src
@@ -20,40 +20,43 @@ cd Python-3.7.6
 make altinstall
 rm /usr/src/Python-3.7.6.tgz
 
-# Now check python:
+Now check python:
 python3.7 -V
 
-# Python 3.7 is now installed.
+Python 3.7 is now installed.
 
 
-Create a python virtual environment to Run the scripts
+## Create a python virtual environment to Run the scripts (optional)
 ------------------------------------------------------------------------------------
-# As the user (oracle):
-# cd to where you want the env
-cd /home/oracle/rubrik_oracle_tools/
-python3.7 -m venv venv37
+As the user (oracle):
+    cd to where you want the env
+    cd /home/oracle/rubrik_oracle_tools/
+    python3.7 -m venv venv37
 
-# Activate the environment:
-source venv37/bin/activate      # You can add this to your login
+Activate the environment:
+    source venv37/bin/activate      (You can add this to your login .bash_profile)
 
-# Upgrade pip (optional):
-pip install --upgrade pip
+Upgrade pip (optional):
+    pip install --upgrade pip
 
-Now you can install the Rubrik Oracle scripts
+## Install the Rubrik Oracle scripts
 ------------------------------------------------
-cd /home/oracle/rubrik_oracle_tools/
+cd to the Rubrik Oracle Tools directory
+    cd /home/oracle/rubrik_oracle_tools/
 
-# Install the module with setup tools:
-pip install --editable .
+Install the module with setup tools:
+    pip install --editable .
 
 
-Configure the connection parameters
+## Configure the connection parameters
 ----------------------------------------------------
-# Edit the config.json file with the Rubrik CDM connection parameters or set those parameters as environmental variable (see instructions at build.rubrik.com)
-# You must provide the Rubrik CDM address or an IP in the cluster and either an API token or a user/password.
+Edit the config.json file with the Rubrik CDM connection parameters or set those parameters as environmental variable (see instructions at build.rubrik.com)
+You must provide the Rubrik CDM address or an IP in the cluster and either an API token or a user/password.
 
 
-$ rubrik_oracle_backup_info --help
+## Available commands:
+----------------------------------------------------
+### rubrik_oracle_backup_info --help
 Usage: rubrik_oracle_backup_info [OPTIONS] HOST_CLUSTER_DB
 
   Displays information about the Oracle database object, the available
@@ -68,7 +71,7 @@ Options:
   --help  Show this message and exit.
 
 
-$ rubrik_oracle_backup_mount --help
+### rubrik_oracle_backup_mount --help
 Usage: rubrik_oracle_backup_mount [OPTIONS] HOST_CLUSTER_DB PATH
 
   This will mount the requested Rubrik Oracle backup set on the provided
@@ -97,7 +100,7 @@ Options:
   --help                   Show this message and exit.
 
 
-$ rubrik_oracle_db_mount --help
+### rubrik_oracle_db_mount --help
 Usage: rubrik_oracle_db_mount [OPTIONS] HOST_CLUSTER_DB TARGET_HOST
 
   Live mount a Rubrik Oracle Backup.
@@ -119,7 +122,7 @@ Options:
   --help                   Show this message and exit.
 
 
-$ rubrik_oracle_unmount --help
+### rubrik_oracle_unmount --help
 Usage: rubrik_oracle_unmount [OPTIONS] HOST_CLUSTER_DB
 
   This will unmount a Rubrik live mount using the database name and the live
