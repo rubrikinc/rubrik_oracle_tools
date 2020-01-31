@@ -7,6 +7,7 @@ Some basic command line python scripts for managing Rubrik Oracle RBS backups.
 
 These scripts require python 3.7 or greater. This is generally not installed on most system and will need to be installed.
 
+# :hammer: Installation
 ## Python 3.7 installation instructions for OEL/RHEL linux. 
 ------------------------------------------------------------
 As root:
@@ -60,7 +61,7 @@ Install the module with setup tools:
 pip install --editable .
 ```
 
-## Configure the connection parameters
+## :hammer: Configure the connection parameters
 ----------------------------------------------------
 Edit the config.json file with the Rubrik CDM connection parameters or set those parameters as environmental variable (see instructions at build.rubrik.com)
 You must provide the Rubrik CDM address or an IP in the cluster and either an API token or a user/password.
@@ -79,7 +80,7 @@ You should probably restrict access to the config.json file
 chmod 600 config.json
 ```
 
-## Available commands:
+## :mag: Available commands:
 ----------------------------------------------------
 #### rubrik_oracle_backup_info
 ```
