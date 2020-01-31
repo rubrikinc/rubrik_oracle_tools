@@ -61,7 +61,7 @@ Install the module with setup tools:
 pip install --editable .
 ```
 
-## :hammer: Configure the connection parameters
+## 	:gear: Configure the connection parameters
 ----------------------------------------------------
 Edit the config.json file with the Rubrik CDM connection parameters or set those parameters as environmental variable (see instructions at build.rubrik.com)
 You must provide the Rubrik CDM address or an IP in the cluster and either an API token or a user/password.
