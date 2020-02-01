@@ -7,11 +7,13 @@ Some basic command line python scripts for managing Rubrik Oracle RBS backups.
 
 These scripts require python 3.7 or greater. This is generally not installed on most system and will need to be installed.
 
-Python 3.7 installation instructions for OEL/RHEL linux. 
+# :hammer: Installation
+## Python 3.7 installation instructions for OEL/RHEL linux. 
 ------------------------------------------------------------
-# As root:
-yum install gcc openssl-devel bzip2-devel libffi-devel
+As root:
 
+```
+yum install gcc openssl-devel bzip2-devel libffi-devel
 cd /usr/src
 wget https://www.python.org/ftp/python/3.7.6/Python-3.7.6.tgz
 tar xzf Python-3.7.6.tgz
@@ -19,41 +21,70 @@ cd Python-3.7.6
 ./configure --enable-optimizations
 make altinstall
 rm /usr/src/Python-3.7.6.tgz
+```
+Now check python:
 
-# Now check python:
+```
 python3.7 -V
+```
+Python 3.7 is now installed.
 
-# Python 3.7 is now installed.
 
-
-Create a python virtual environment to Run the scripts
+## Create a python virtual environment to Run the scripts (optional)
 ------------------------------------------------------------------------------------
-# As the user (oracle):
-# cd to where you want the env
+As the user (oracle):
+```
+cd to where you want the env
 cd /home/oracle/rubrik_oracle_tools/
 python3.7 -m venv venv37
+```
 
-# Activate the environment:
-source venv37/bin/activate      # You can add this to your login
+Activate the environment (This can be added to your .bash_profile):
+```
+source venv37/bin/activate
+```
 
-# Upgrade pip (optional):
+Upgrade pip (optional):
+```
 pip install --upgrade pip
+```
 
-Now you can install the Rubrik Oracle scripts
+## Install the Rubrik Oracle scripts
 ------------------------------------------------
+cd to the Rubrik Oracle Tools directory
+```
 cd /home/oracle/rubrik_oracle_tools/
+```
 
-# Install the module with setup tools:
+Install the module with setup tools:
+```
 pip install --editable .
+```
 
-
-Configure the connection parameters
+## 	:gear: Configure the connection parameters
 ----------------------------------------------------
-# Edit the config.json file with the Rubrik CDM connection parameters or set those parameters as environmental variable (see instructions at build.rubrik.com)
-# You must provide the Rubrik CDM address or an IP in the cluster and either an API token or a user/password.
+Edit the config.json file with the Rubrik CDM connection parameters or set those parameters as environmental variable (see instructions at build.rubrik.com)
+You must provide the Rubrik CDM address or an IP in the cluster and either an API token or a user/password.
 
+#### Example config.json file:
+```
+{
+  "rubrik_cdm_node_ip": "10.1.1.20",
+  "rubrik_cdm_token": "",
+  "rubrik_cdm_username": "oraclesvc",
+  "rubrik_cdm_password": "RubrikRules"
+}
+```
+You should probably restrict access to the config.json file
+```
+chmod 600 config.json
+```
 
-$ rubrik_oracle_backup_info --help
+## :mag: Available commands:
+----------------------------------------------------
+#### rubrik_oracle_backup_info
+```
+rubrik_oracle_backup_info --help
 Usage: rubrik_oracle_backup_info [OPTIONS] HOST_CLUSTER_DB
 
   Displays information about the Oracle database object, the available
@@ -66,9 +97,11 @@ Usage: rubrik_oracle_backup_info [OPTIONS] HOST_CLUSTER_DB
 
 Options:
   --help  Show this message and exit.
+```
 
-
-$ rubrik_oracle_backup_mount --help
+#### rubrik_oracle_backup_mount
+```
+rubrik_oracle_backup_mount --help
 Usage: rubrik_oracle_backup_mount [OPTIONS] HOST_CLUSTER_DB PATH
 
   This will mount the requested Rubrik Oracle backup set on the provided
@@ -96,8 +129,11 @@ Options:
                            source is RAC)  for the Live Mount
   --help                   Show this message and exit.
 
+```
 
-$ rubrik_oracle_db_mount --help
+#### rubrik_oracle_db_mount
+```
+rubrik_oracle_db_mount --help
 Usage: rubrik_oracle_db_mount [OPTIONS] HOST_CLUSTER_DB TARGET_HOST
 
   Live mount a Rubrik Oracle Backup.
@@ -118,8 +154,11 @@ Options:
                            YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
   --help                   Show this message and exit.
 
+```
 
-$ rubrik_oracle_unmount --help
+#### rubrik_oracle_unmount
+```
+rubrik_oracle_unmount --help
 Usage: rubrik_oracle_unmount [OPTIONS] HOST_CLUSTER_DB
 
   This will unmount a Rubrik live mount using the database name and the live
@@ -135,3 +174,4 @@ Usage: rubrik_oracle_unmount [OPTIONS] HOST_CLUSTER_DB
 Options:
   -f, --force  Force unmount
   --help       Show this message and exit.
+```

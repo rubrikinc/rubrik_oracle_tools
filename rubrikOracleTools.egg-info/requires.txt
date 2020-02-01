@@ -1,5 +1,0 @@
-requests
-rubrik_cdm
-urllib3
-Click
-pytz
