@@ -1,4 +1,6 @@
-# Rubrik Oracle Functions
+#!/usr/bin/env python3
+"""Module of functions for Rubrik Oracle
+"""
 import rubrik_cdm
 import datetime
 import pytz
@@ -53,7 +55,7 @@ def get_oracle_db_id(rubrik, oracle_db_name, oracle_host_name):
     This is just a wrapper on object_id function in the Rubrik CDM module.
 
     Args:
-        rubrik: Rubrik CDM connection object
+        rubrik (class): Rubrik CDM connection object
         oracle_db_name (str): The database name.
         oracle_host_name (str):  The host name or cluster name that the db is running on.
 
@@ -69,7 +71,7 @@ def get_oracle_db_info(rubrik, oracle_db_id):
     Gets the information about a Rubrik Oracle database object using the Rubrik Oracle database id.
 
     Args:
-        rubrik:  Rubrik CDM connection object.
+        rubrik (class):  Rubrik CDM connection object.
         oracle_db_id (str): The Rubrik database object id.
 
     Returns:
@@ -84,7 +86,7 @@ def get_oracle_db_recoverable_range(rubrik, oracle_db_id):
         Gets the Rubrik Oracle database object's available recovery ranges using the Rubrik Oracle database id.
 
         Args:
-            rubrik:  Rubrik CDM connection object.
+            rubrik (class):  Rubrik CDM connection object.
             oracle_db_id (str): The Rubrik database object id.
 
         Returns:
@@ -99,7 +101,7 @@ def get_oracle_db_snapshots(rubrik, oracle_db_id):
         Gets the Rubrik Oracle database object's available snapshots using the Rubrik Oracle database id.
 
         Args:
-            rubrik:  Rubrik CDM connection object.
+            rubrik (class):  Rubrik CDM connection object.
             oracle_db_id (str): The Rubrik database object id.
 
         Returns:
@@ -172,7 +174,7 @@ def live_mount(rubrik, oracle_db_id, host_id, time_ms, files_only=False, mount_p
     Live mounts a Rubrik Database backup on the requested host or cluster.
 
     Args:
-        rubrik:   Rubrik CDM connection object.
+        rubrik (class):   Rubrik CDM connection object.
         oracle_db_id (str): The Rubrik Oracle database id.
         host_id (str):  The Rubrik host or cluster for the mount.
         time_ms  (str):  The point in time of the backup to mount.
@@ -197,7 +199,7 @@ def live_mount_delete(rubrik, live_mount_id, force):
     This will unmount a live mounted database or backup set.
 
     Args:
-        rubrik: A rubrik_connection_object.
+        rubrik (class): A rubrik_connection_object.
         live_mount_id (str): The id of the mount to remove,
         force (bool): Set to true to force the unmount.
 
@@ -213,7 +215,7 @@ def get_host_id(rubrik, primary_cluster_id, hostname):
     Gets the Oracle database host using the hostname.
 
     Args:
-        rubrik: A rubrik_connection_object
+        rubrik (class): A rubrik_connection_object
         hostname (str): The oracle host name
         primary_cluster_id (str): The rubrik cluster id
 
@@ -240,7 +242,7 @@ def get_rac_id(rubrik, primary_cluster_id, rac_cluster_name):
     Gets the RAC Cluster ID using the cluster name.
 
     Args:
-        rubrik: A rubrik_connection_object.
+        rubrik (class): A rubrik_connection_object.
         rac_cluster_name (str): The RAC cluster name.
         primary_cluster_id (str): The rubrik cluster id
 
@@ -267,7 +269,7 @@ def get_oracle_live_mount_id(rubrik, primary_cluster_id, db_name, host_cluster):
     This will search for and retrieve the live mount id for a live mount of the database on the host.
 
     Args:
-        rubrik: A rubrik_connection_object.
+        rubrik (class): A rubrik_connection_object.
         db_name (str): The database name.
         host_cluster (str): The host or cluster name. If the live mount is on a cluster this can be the cluster name
         or the host name of one of the nodes in the cluster
@@ -304,5 +306,65 @@ def get_oracle_live_mount_id(rubrik, primary_cluster_id, db_name, host_cluster):
     return live_mount_id
 
 
+def get_sla_id(rubrik, sla_name):
+    """
+    Gets the Rubrik SLA ID for the SLA.
 
+    Args:
+        rubrik (class): A rubrik_connection_object.
+        sla_name (str): The Rubrik SLA Domain name
+
+    Returns:
+        sla_id (str): The Rubrik SLA ID
+
+    """
+    sla_info = rubrik.get('v1', '/sla_domain?name={}'.format(sla_name))
+    if sla_info['total'] == 0:
+        raise RubrikOracleModuleError("The sla: {} was not found on this Rubrik cluster.".format(sla_name))
+    elif sla_info['total'] > 1:
+        raise RubrikOracleModuleError("Multiple SLAs with the name {} were found on this cluster.".format(sla_name))
+    else:
+        sla_id = sla_info['data'][0]['id']
+    return sla_id
+
+
+def oracle_db_snapshot(rubrik, db_id, sla_id, force):
+    """
+    Initiates an on demand snapshot of an Oracle database. Uses the current
+    SLA for that database if an sla name is not supplied.  Forces a full backup if
+    force is true.
+
+    Args:
+        rubrik (class): A rubrik_connection_object.
+        db_id (str): The id for the database to be backed up.
+        sla_id (str): The Rubrik SLA ID.
+        force (bool): Force a full backup.
+
+    Returns:
+        A list of the information returned from the Rubrik CDM  from the Snapshot request.
+
+    """
+    payload = {
+        "slaId": sla_id,
+        "forceFullSnapshot": force
+    }
+    db_snapshot_info = rubrik.post('internal', '/oracle/db/{}/snapshot'.format(db_id), payload)
+    return db_snapshot_info
+
+
+def oracle_log_backup(rubrik, db_id):
+    """
+    Initiates an archive log backup of an Oracle database.
+
+    Args:
+        rubrik: A rubrik_connection_object.
+        db_id (str): The id for the database to be backed up.
+
+    Returns:
+        A list of the information returned from the Rubrik CDM  from the log backup request.
+
+    """
+
+    oracle_log_backup_info = rubrik.post('internal', '/oracle/db/{}/log_backup'.format(db_id), '')
+    return oracle_log_backup_info
 
