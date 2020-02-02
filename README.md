@@ -175,3 +175,49 @@ Options:
   -f, --force  Force unmount
   --help       Show this message and exit.
 ```
+
+#### rubrik_oracle_snapshot
+```
+rubrik_oracle_snapshot --help
+Usage: rubrik_oracle_snapshot [OPTIONS] HOST_CLUSTER_DB
+
+      This will initiate an on demand snapshot (backup) of the database.
+
+      The source database is specified in a host:db format. To force a new full level 0
+      image backup of the database set force to True. If you would like to use a different SLA for this snapshot you
+      can specify that here also. Note if no SLA is supplied the current sla for this database will be used.
+
+      Args:
+          host_cluster_db (str): The hostname the database is running on : The database name.
+          force (bool): Force a new full database image level 0 backup
+          sla (str): The Rubrik SLA Domain to use if different than the assigned SLA
+
+      Returns:
+          snapshot_info (dict): The information about the snapshot returned from the Rubrik CDM.
+
+
+Options:
+  -f, --force     Force a new full database image level 0 backup
+  -s, --sla TEXT  Rubrik SLA Domain to use if different than the assigned SLA
+  --help          Show this message and exit.
+```
+
+#### rubrik_oracle_log_backup
+```
+rubrik_oracle_log_backup --help
+Usage: rubrik_oracle_log_backup [OPTIONS] HOST_CLUSTER_DB
+
+      This will initiate an on demand archive log backup of the database.
+
+      The source database is specified in a host:db format.
+
+      Args:
+          host_cluster_db (str): The hostname the database is running on : The database name.
+
+      Returns:
+          log_backup_info (dict): The information about the snapshot returned from the Rubrik CDM.
+
+
+Options:
+  --help  Show this message and exit.
+```
