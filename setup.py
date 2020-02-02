@@ -19,7 +19,7 @@ setup(
         rubrik_oracle_backup_mount=rubrik_oracle_backup_mount:cli
         rubrik_oracle_db_mount=rubrik_oracle_db_mount:cli
         rubrik_oracle_unmount=rubrik_oracle_unmount:cli
-        rubrik_oracle_snapshot=rubrik_oracle_snapshot.cli
-        rubrik_oracle_log_backup=rubrik_oracle_log_backup.cli
+        rubrik_oracle_snapshot=rubrik_oracle_snapshot:cli
+        rubrik_oracle_log_backup=rubrik_oracle_log_backup:cli
     '''
 )
