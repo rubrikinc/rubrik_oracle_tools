@@ -282,7 +282,7 @@ def get_oracle_live_mount_id(rubrik, primary_cluster_id, db_name, host_cluster):
     live_mount_id = []
     # On CDM 5.1.1+ the targetHostID id is the host or cluster name first.
     for mount in oracle_live_mounts['data']:
-        if host_cluster == mount['targetHostId']:
+        if host_cluster in mount['targetHostId']:
             live_mount_id.append(mount['id'])
     if live_mount_id:
         return live_mount_id
