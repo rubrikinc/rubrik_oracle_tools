@@ -279,6 +279,14 @@ def get_oracle_live_mount_id(rubrik, primary_cluster_id, db_name, host_cluster):
         live_mount_id (str): The id of the requested live mount.
     """
     oracle_live_mounts = rubrik.get('internal', '/oracle/db/mount?source_database_name={}'.format(db_name))
+    live_mount_id = []
+    # On CDM 5.1.1+ the targetHostID id is the host or cluster name first.
+    for mount in oracle_live_mounts['data']:
+        if host_cluster == mount['targetHostId']:
+            live_mount_id.append(mount['id'])
+    if live_mount_id:
+        return live_mount_id
+    # If no match the CDM release is pre 5.1.1 and we much find the id for the target host
     # Check if host_cluster is a RAC Cluster or a node in a RAC cluster so we can use the RAC cluster id
     rac_id = rubrik.get('internal', '/oracle/rac?name={}'.format(host_cluster))
     mount_host_id = ''
@@ -299,7 +307,6 @@ def get_oracle_live_mount_id(rubrik, primary_cluster_id, db_name, host_cluster):
     if not mount_host_id:
         mount_host_id = get_host_id(rubrik, primary_cluster_id, host_cluster)
     host_id = mount_host_id .split(':::')[1]
-    live_mount_id = []
     for mount in oracle_live_mounts['data']:
         if host_id == mount['targetHostId']:
             live_mount_id.append(mount['id'])
