@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import inspect
+import re
 import urllib3
 
 urllib3.disable_warnings()
@@ -62,8 +63,35 @@ def get_oracle_db_id(rubrik, oracle_db_name, oracle_host_name):
     Returns:
         oracle_db_id (str): The Rubrik database object id.
     """
-    oracle_db_id = rubrik.object_id(oracle_db_name, 'oracle_db', hostname=oracle_host_name)
-    return oracle_db_id
+
+    # This will use the rubrik_cdm module to get the id. There is a bug that is getting fixed so until
+    # that fix is in place get the id using a basic Get.
+    #     oracle_db_id = rubrik.object_id(oracle_db_name, 'oracle_db', hostname=oracle_host_name)
+    #     return oracle_db_id
+
+    oracle_dbs = rubrik.get("internal", "/oracle/db?name={}".format(oracle_db_name), timeout=60)
+    # Find the oracle_db object with the correct hostName or RAC cluster name.
+    # Instance names can be stored/entered with and without the domain name so
+    # we will compare the hostname with the domain.
+    if is_ip(oracle_host_name):
+        raise RubrikOracleModuleError("A hostname is required for the Oracle host, do not use an IP address.")
+    oracle_host_name = oracle_host_name.split('.')[0]
+    if oracle_dbs['total'] == 0:
+        raise RubrikOracleModuleError("The {} object '{}' was not found on the Rubrik cluster.".format(oracle_db_name, oracle_host_name))
+    elif oracle_dbs['total'] > 0:
+        for db in oracle_dbs['data']:
+            if 'standaloneHostName' in db.keys():
+                if oracle_host_name == db['standaloneHostName'].split('.')[0]:
+                    oracle_id = db['id']
+                    break
+            elif 'racName' in db.keys():
+                if oracle_host_name == db['racName']:
+                    oracle_id = db['id']
+                    break
+                if any(instance['hostName'] == oracle_host_name for instance in  db['instances']):
+                    oracle_id = db['id']
+                    break
+    return oracle_id
 
 
 def get_oracle_db_info(rubrik, oracle_db_id):
@@ -375,3 +403,22 @@ def oracle_log_backup(rubrik, db_id):
     oracle_log_backup_info = rubrik.post('internal', '/oracle/db/{}/log_backup'.format(db_id), '')
     return oracle_log_backup_info
 
+
+def is_ip(hostname):
+    """
+    Checks if a hostname is an IP address.
+
+    Args:
+        hostname (str): The hostname to test to see if it's an IP address.
+
+    Returns:
+        True if hostname is an IP Address, False if it is not.
+    """
+    regex = '''^(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.( 
+                    25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.( 
+                    25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.( 
+                    25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)'''
+    if re.search(regex, hostname):
+        return True
+    else:
+        return False
