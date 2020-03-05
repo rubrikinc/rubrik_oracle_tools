@@ -43,7 +43,7 @@ def cli(host_cluster_db, target_host, time_restore):
         print("Using most recent recovery point for mount.")
         oracle_db_info = rbk.get_oracle_db_info(rubrik, oracle_db_id)
         time_ms = rbk.epoch_time(oracle_db_info['latestRecoveryPoint'], timezone)
-    print("Starting Live Mount of {} on {}.".format(host_cluster_db[0], target_host))
+    print("Starting Live Mount of {} on {}.".format(host_cluster_db[1], target_host))
     live_mount_info = rbk.live_mount(rubrik, oracle_db_id, host_id, time_ms)
     # Set the time format for the printed result
     cluster_timezone = pytz.timezone(timezone)
