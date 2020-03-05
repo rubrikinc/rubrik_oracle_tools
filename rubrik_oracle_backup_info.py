@@ -42,8 +42,8 @@ def cli(host_cluster_db):
     print("*" * 100)
     print("Recoverable ranges:")
     for recovery_range in oracle_db_recoverable_range_info['data']:
-        print("Begin Time: {}   End Time: {}".format(rbk.cluster_time(recovery_range['beginTime'], timezone),
-                                                     rbk.cluster_time(recovery_range['endTime'], timezone)))
+        print("Begin Time: {}   End Time: {}".format(rbk.cluster_time(recovery_range['beginTime'], timezone)[:-6],
+                                                     rbk.cluster_time(recovery_range['endTime'], timezone)[:-6]))
 
 
 if __name__ == "__main__":
