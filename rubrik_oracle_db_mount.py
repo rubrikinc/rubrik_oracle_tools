@@ -2,14 +2,14 @@ import rubrik_oracle_module as rbk
 import click
 import datetime
 import pytz
-import json
 
 
 @click.command()
 @click.argument('host_cluster_db')
 @click.argument('target_host')
 @click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, iso format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
-def cli(host_cluster_db, target_host, time_restore):
+@click.option('--no_wait', is_flag=False, help='Queue Live Mount and exit.')
+def cli(host_cluster_db, target_host, time_restore, no_wait):
     """Live mount a Rubrik Oracle Backup.
 
 \b
@@ -19,6 +19,7 @@ def cli(host_cluster_db, target_host, time_restore):
         host_cluster_db (str): The hostname the database is running on : The database name
         target_host (str): The host to live mount the database. (Must be a compatible Oracle host on Rubrik)
         time_restore: The point in time for the live mount iso 8601 format (2019-04-30T18:23:21)
+        no_wait (flag): Exit after queueing the live mount.
 \b
     Returns:
         live_mount_info (json); JSON text file with the Rubrik cluster response to the live mount request
@@ -51,7 +52,11 @@ def cli(host_cluster_db, target_host, time_restore):
     start_time = utc.localize(datetime.datetime.fromisoformat(live_mount_info['startTime'][:-1])).astimezone(cluster_timezone)
     fmt = '%Y-%m-%d %H:%M:%S %Z'
     print("Live mount status: {}, Started at {}.".format(live_mount_info['status'], start_time.strftime(fmt)))
-    return json.dumps(live_mount_info)
+    if no_wait:
+        return live_mount_info
+    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'QUEUED', 3)
+    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'RUNNING', 10)
+    return live_mount_info
 
 
 if __name__ == "__main__":

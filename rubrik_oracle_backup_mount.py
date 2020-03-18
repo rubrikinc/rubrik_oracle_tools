@@ -3,14 +3,15 @@ import rubrik_oracle_module as rbk
 import click
 import datetime
 import pytz
-
+import time
 
 @click.command()
 @click.argument('host_cluster_db')
 @click.argument('path')
 @click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
 @click.option('--target_host', '-h', type=str, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
-def cli(host_cluster_db, path, time_restore, target_host):
+@click.option('--no_wait', is_flag=False, help='Queue Live Mount and exit.')
+def cli(host_cluster_db, path, time_restore, target_host, no_wait):
     """
     This will mount the requested Rubrik Oracle backup set on the provided path.
 
@@ -25,6 +26,7 @@ def cli(host_cluster_db, path, time_restore, target_host):
         time_restore (str): The point in time for the backup set in  iso 8601 format (2019-04-30T18:23:21).
         target_host (str): The host to mount the backup set. If not specified the source host will be used.
                             IF source DB in on RAC this must be a RAC Cluster.
+        no_wait (flag): Exit after queueing the live mount.
 \b
     Returns:
         live_mount_info (dict): The information about the requested files only mount returned from the Rubrik CDM.
@@ -60,7 +62,18 @@ def cli(host_cluster_db, path, time_restore, target_host):
     start_time = utc.localize(datetime.datetime.fromisoformat(live_mount_info['startTime'][:-1])).astimezone(cluster_timezone)
     fmt = '%Y-%m-%d %H:%M:%S %Z'
     print("Live mount status: {}, Started at {}.".format(live_mount_info['status'], start_time.strftime(fmt)))
+    if no_wait:
+        return live_mount_info
+    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'QUEUED', 3)
+    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'RUNNING', 10)
     return live_mount_info
+
+
+class RubrikOracleBackupMountError(rbk.NoTraceBackWithLineNumber):
+    """
+        Renames object so error is named with calling script
+    """
+    pass
 
 
 if __name__ == "__main__":
