@@ -11,16 +11,22 @@ import pytz
 @click.option('--oracle_home', '-o', type=str, help='ORACLE_HOME path for this database')
 @click.option('--new_oracle_name', '-n', type=str, help='Name for the cloned database')
 def cli(host_cluster_db, target_host, time_restore, oracle_home, new_oracle_name):
-    """Live mount a Rubrik Oracle Backup.
+    """Live mount an Oracle database from a Rubrik Oracle Backup and rename the live mounted database.
 
 \b
-    Gets the backup for the Oracle database on the Oracle database host and will live mount it on the host provided.
+    Live mounts an Oracle database from the Rubrik backups. The database is then shutdown, mounted, and
+    the name changed using the Oracle NID utility. Note that live mounted databases that have had the
+    name changed will need to be cleaned up after the database is unmounted. The
+    rubrik_oracle_db_clone_unmoount utility will both unmount the live mount and cleanup the database
+    files.
+
 \b
     Args:
         host_cluster_db (str): The hostname the database is running on : The database name
         target_host (str): The host to live mount the database. (Must be a compatible Oracle host on Rubrik)
         time_restore: The point in time for the live mount iso 8601 format (2019-04-30T18:23:21)
-        no_wait (flag): Exit after queueing the live mount.
+        oracle_home (str): The ORACLE_HOME on the host where there live mount is being done.
+        new_oracle_name (str): The new name for the live mounted database.
 \b
     Returns:
         live_mount_info (json); JSON text file with the Rubrik cluster response to the live mount request
@@ -32,6 +38,7 @@ def cli(host_cluster_db, target_host, time_restore, oracle_home, new_oracle_name
     host_cluster_db = host_cluster_db.split(":")
     oracle_db_id = rbk.get_oracle_db_id(rubrik, host_cluster_db[1], host_cluster_db[0])
     oracle_db_info = rbk.get_oracle_db_info(rubrik, oracle_db_id)
+    host_id = ''
     # If source DB is RAC then the target for the live mount must be a RAC cluster
     if 'racName' in oracle_db_info.keys():
         if oracle_db_info['racName']:
@@ -53,9 +60,9 @@ def cli(host_cluster_db, target_host, time_restore, oracle_home, new_oracle_name
     start_time = utc.localize(datetime.datetime.fromisoformat(live_mount_info['startTime'][:-1])).astimezone(cluster_timezone)
     fmt = '%Y-%m-%d %H:%M:%S %Z'
     print("Live mount status: {}, Started at {}.".format(live_mount_info['status'], start_time.strftime(fmt)))
-    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'QUEUED', 3)
-    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'RUNNING', 10)
-    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'FINISHING', 5)
+    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'QUEUED', 10)
+    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'RUNNING', 20)
+    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'FINISHING', 10)
     if rubrik.get('internal', '/oracle/request/{}'.format(live_mount_info['id']), timeout=60)['status'] != "SUCCEEDED":
         return live_mount_info
     rbk.oracle_db_rename(host_cluster_db[1], oracle_home, new_oracle_name)
