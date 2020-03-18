@@ -6,10 +6,13 @@ import datetime
 import pytz
 import json
 import os
+import subprocess
+from subprocess import PIPE, Popen
 import sys
 import inspect
 import re
 import time
+import glob
 from yaspin import yaspin
 import urllib3
 
@@ -72,6 +75,7 @@ def get_oracle_db_id(rubrik, oracle_db_name, oracle_host_name):
     #     return oracle_db_id
 
     oracle_dbs = rubrik.get("internal", "/oracle/db?name={}".format(oracle_db_name), timeout=60)
+    oracle_id = ''
     # Find the oracle_db object with the correct hostName or RAC cluster name.
     # Instance names can be stored/entered with and without the domain name so
     # we will compare the hostname with the domain.
@@ -426,89 +430,91 @@ def is_ip(hostname):
         return False
 
 
-#@yaspin(text="Waiting...")
 def request_status_wait_loop(rubrik, requests_id, condition, timeout):
     timeout_start = time.time()
-    #spinner = Spinner('Waiting---')
     waiting = False
+    oracle_request = {}
     while time.time() < timeout_start + (timeout * 60):
         oracle_request = rubrik.get('internal', '/oracle/request/{}'.format(requests_id), timeout=60)
         if oracle_request['status'] != condition:
             break
         waiting = True
-    #    spinner.next()
-    #    time.sleep(1)
-    #    spinner.next()
-    #    # print('*', end='')
-    #    time.sleep(1)
-    #    spinner.next()
-    #    # print('*', end='')
-    #    time.sleep(1)
-    #    spinner.next()
         with yaspin():
             time.sleep(3)
     if oracle_request['status'] == condition:
         raise RubrikOracleScriptTimeoutError(
-            "\nTimeout: Live Mount status has been QUEUED for longer than the timeout period of {} minutes. The Live Mount will remain QUEUED  and the script will exit.".format(
-                timeout))
+            "\nTimeout: Live Mount status has been {0} for longer than the timeout period of {1} minutes. The Live Mount will remain {0}  and the script will exit.".format(
+                condition, timeout))
     else:
         if waiting:
             print('')
         print("Live mount status: {}".format(oracle_request['status']))
         return oracle_request
 
+
 def oracle_db_rename(oracle_sid, oracle_home, new_oracle_name):
     os.environ["ORACLE_HOME"] = oracle_home
     os.environ["ORACLE_SID"] = oracle_sid
-    sql_args = [os.path.join(oracle_home, 'bin', 'sqlplus')]
-    sql_args.append('-S')
-    sql_args.append('/')
-    sql_args.append('as')
-    sql_args.append('sysdba')
-    # Shutdown the database
-    session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    session.stdin.write('shutdown immediate'.encode())
-    stdout, stderr = session.communicate()
-    print(stdout.decode())
-    # Startup mount
-    session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    session.stdin.write('startup mount'.encode())
-    stdout, stderr = session.communicate()
-    print(stdout.decode())
+    print(sqlplus_sysdba(oracle_home, 'shutdown immediate'))
+    print(sqlplus_sysdba(oracle_home, 'startup mount'))
     # Change the database name
     logfile = oracle_home + '/dbs/nid_' + new_oracle_name + '.log'
-    print("NID Logfile {}".format(logfile))
+    print("NID Logfile: {}".format(logfile))
     session = Popen(['nid', 'target=/', 'dbname={}'.format(new_oracle_name), 'logfile={}'.format(logfile)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
     stdout, stderr = session.communicate()
     print(stdout.decode())
     # Create an init file from the spfile
-    session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    session.stdin.write('create pfile from spfile;'.encode())
-    stdout, stderr = session.communicate()
-    print(stdout.decode())
+    print(sqlplus_sysdba(oracle_home, 'create pfile from spfile;'))
     # Rename the init file
     os.rename("{}/dbs/init{}.ora".format(oracle_home, oracle_sid), "{}/dbs/init{}.ora".format(oracle_home, new_oracle_name))
+    # Rename the password file if present
     if os.path.exists("{}/dbs/orapw{}".format(oracle_home, oracle_sid)):
         os.rename("{}/dbs/orapw{}".format(oracle_home, oracle_sid), "{}/dbs/orapw{}".format(oracle_home, new_oracle_name))
+    # Rename the control files
     os.rename("{}/dbs/{}_control1".format(oracle_home, oracle_sid), "{}/dbs/{}_control1".format(oracle_home, new_oracle_name))
     os.rename("{}/dbs/{}_control2".format(oracle_home, oracle_sid), "{}/dbs/{}_control2".format(oracle_home, new_oracle_name))
+    # Change the database name in all the parameters in the init file
     status = subprocess.check_output("sed -i 's/{0}/{1}/g' {2}/dbs/init{1}.ora".format(oracle_sid, new_oracle_name, oracle_home), shell=True)
     print(status.decode())
+    # Switch the environment to the new database name
     os.environ["ORACLE_SID"] = new_oracle_name
-    sql_args[0] = os.path.join(oracle_home, 'bin', 'sqlplus')
-    session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    session.stdin.write('create spfile from pfile;'.encode())
-    stdout, stderr = session.communicate()
-    print(stdout.decode())
-    session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    session.stdin.write('startup mount;'.encode())
-    stdout, stderr = session.communicate()
-    print(stdout.decode())
-    session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    session.stdin.write('alter database open resetlogs;'.encode())
-    stdout, stderr = session.communicate()
-    print(stdout.decode())
+    # Open the database
+    print(sqlplus_sysdba(oracle_home, 'create spfile from pfile;'))
+    print(sqlplus_sysdba(oracle_home, 'startup mount;'))
+    print(sqlplus_sysdba(oracle_home, 'alter database open resetlogs;'))
     return
+
+
+def oracle_db_clone_cleanup(oracle_sid, oracle_home):
+    os.environ["ORACLE_HOME"] = oracle_home
+    os.environ["ORACLE_SID"] = oracle_sid
+    print(sqlplus_sysdba(oracle_home, 'shutdown abort;'))
+    print(sqlplus_sysdba(oracle_home, 'startup force mount exclusive restrict;'))
+    print(sqlplus_sysdba(oracle_home, 'drop database;'))
+    delete_dbs_files(oracle_home, 'arch*')
+    delete_dbs_files(oracle_home, 'c-*')
+    delete_dbs_files(oracle_home, 'hc_{}.dat'.format(oracle_sid))
+    delete_dbs_files(oracle_home, 'init{}.ora'.format(oracle_sid))
+    delete_dbs_files(oracle_home, 'init{}.ora'.format(oracle_sid))
+    delete_dbs_files(oracle_home, 'lkO{}'.format(oracle_sid))
+    return
+
+
+def sqlplus_sysdba(oracle_home, sql_command):
+    sql_args = [os.path.join(oracle_home, 'bin', 'sqlplus'), '-S', '/', 'as', 'sysdba']
+    session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    session.stdin.write(sql_command.encode())
+    stdout, stderr = session.communicate()
+    return stdout.decode()
+
+
+def delete_dbs_files(oracle_home, pattern):
+    file_name = glob.glob(oracle_home + '/dbs/' + pattern)
+    for file_path in file_name:
+        try:
+            os.remove(file_path)
+        except:
+            print("Error while deleting file: {}".format(file_path))
 
 
 class RubrikOracleScriptTimeoutError(NoTraceBackWithLineNumber):
