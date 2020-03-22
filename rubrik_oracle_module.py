@@ -508,6 +508,14 @@ def sqlplus_sysdba(oracle_home, sql_command):
     return stdout.decode()
 
 
+def rman(oracle_home, rman_command):
+    sql_args = [os.path.join(oracle_home, 'bin', 'rman'), 'target', '/']
+    session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    session.stdin.write(rman_command.encode())
+    stdout, stderr = session.communicate()
+    return stdout.decode()
+
+
 def delete_dbs_files(oracle_home, pattern):
     file_name = glob.glob(oracle_home + '/dbs/' + pattern)
     for file_path in file_name:
@@ -515,6 +523,28 @@ def delete_dbs_files(oracle_home, pattern):
             os.remove(file_path)
         except:
             print("Error while deleting file: {}".format(file_path))
+
+
+def get_latest_autobackup(path):
+    """
+    Finds the latest control file backup recursively in a path.
+
+   Args:
+        path (str): The path in which to search for a control file.
+
+    Returns:
+        control file backup (str): The path of the latest control file backup
+
+    """
+    file_name = glob.glob(path + '/**/controlfile_c-*', recursive=True)
+    if file_name:
+        latest = file_name[0]
+        for file_path in file_name:
+            if int(file_path[-2:], base=16) > int(latest[-2:], base=16):
+                latest = file_path
+        return latest
+    else:
+        raise RubrikOracleModuleError("No control file backups were found in {}.".format(path))
 
 
 class RubrikOracleScriptTimeoutError(NoTraceBackWithLineNumber):
