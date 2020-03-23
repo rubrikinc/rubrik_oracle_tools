@@ -60,6 +60,8 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
         print("Using most recent recovery point for mount.")
         oracle_db_info = rbk.get_oracle_db_info(rubrik, oracle_db_id)
         time_ms = rbk.epoch_time(oracle_db_info['latestRecoveryPoint'], timezone)
+    # List directories in path to allow us to find the new directory after the mount
+    live_mount_directories = os.listdir(path)
     print("Starting the mount of the requested {} backup pieces on {}.".format(host_cluster_db[1], target_host))
     live_mount_info = rbk.live_mount(rubrik, oracle_db_id, host_id, time_ms, files_only=True, mount_path=path)
     cluster_timezone = pytz.timezone(timezone)
@@ -74,13 +76,21 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
     print(live_mount_info)  # debug
     if rubrik.get('internal', '/oracle/request/{}'.format(live_mount_info['id']), timeout=60)['status'] != "SUCCEEDED":
         return live_mount_info
-    auto_backup_file = rbk.get_latest_autobackup(path)
+    # Now determine the new live mount directory
+    new_live_mount_directories = os.listdir(path)
+    live_mount_directory = list(set(new_live_mount_directories) - set(live_mount_directories))
+    if len(live_mount_directory) == 1:
+        backup_path = path + '/' + live_mount_directory[0]
+    else:
+        raise RubrikOracleBackupMountCloneError("Multiple directories were created in {} during this operation. Live mount directory cannot be determined".format(path))
+    auto_backup_file = rbk.get_latest_autobackup(backup_path)
     with open(oracle_home + '/dbs/init{}.ora'.format(new_oracle_name), 'w') as file:
         file.write('db_name={}'.format(host_cluster_db[1]))
     os.environ["ORACLE_HOME"] = oracle_home
     os.environ["ORACLE_SID"] = new_oracle_name
     print(rbk.sqlplus_sysdba(oracle_home, 'startup nomount'))
     print(rbk.rman(oracle_home, "restore spfile from '{}';".format(auto_backup_file)))
+    print(rbk.sqlplus_sysdba(oracle_home, 'startup force nomount'))
     print(rbk.sqlplus_sysdba(oracle_home, "alter system set db_unique_name='{}' scope=spfile;".format(new_oracle_name)))
     print(rbk.sqlplus_sysdba(oracle_home, 'startup force nomount;'))
     oracle_files_path = files_directory + '/{}'.format(new_oracle_name)
@@ -92,7 +102,7 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
     print(rbk.sqlplus_sysdba(oracle_home, "alter system set audit_file_dest = '{}' scope=spfile;".format(audit_dir)))
     print(rbk.sqlplus_sysdba(oracle_home, 'startup force mount;'))
     print(rbk.rman(oracle_home, 'crosscheck copy; crosscheck backup; delete noprompt expired copy; delete noprompt expired backup;'))
-    print(rbk.rman(oracle_home, "catalog start with '{}' noprompt;".format(path)))
+    print(rbk.rman(oracle_home, "catalog start with '{}' noprompt;".format(backup_path)))
     print(rbk.rman(oracle_home, 'switch database to copy;'))
     # move the redo logs before we create them with an open resetlogs
     move_redo_sql = """
@@ -142,7 +152,7 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
 
     print(rbk.rman(oracle_home, 'recover database;'))
     # Switch to noarchive log mode
-    print(rbk.sqlplus_sysdba(oracle_home, 'alter database noarchive;'))
+    print(rbk.sqlplus_sysdba(oracle_home, 'alter database noarchivelog;'))
     # Now change the database name
     print(rbk.sqlplus_sysdba(oracle_home, 'alter database open resetlogs;'))
     print(rbk.sqlplus_sysdba(oracle_home, 'shutdown immediate;'))
@@ -162,7 +172,7 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
     return
 
 
-class RubrikOracleBackupMountError(rbk.NoTraceBackWithLineNumber):
+class RubrikOracleBackupMountCloneError(rbk.NoTraceBackWithLineNumber):
     """
         Renames object so error is named with calling script
     """
