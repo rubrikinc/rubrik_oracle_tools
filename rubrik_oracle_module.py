@@ -501,6 +501,7 @@ def oracle_db_clone_cleanup(oracle_sid, oracle_home):
 
 
 def sqlplus_sysdba(oracle_home, sql_command):
+    print("SQL: {}".format(sql_command))
     sql_args = [os.path.join(oracle_home, 'bin', 'sqlplus'), '-S', '/', 'as', 'sysdba']
     session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     session.stdin.write(sql_command.encode())
@@ -509,6 +510,7 @@ def sqlplus_sysdba(oracle_home, sql_command):
 
 
 def rman(oracle_home, rman_command):
+    print("RMAN: {}".format(rman_command))
     sql_args = [os.path.join(oracle_home, 'bin', 'rman'), 'target', '/']
     session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     session.stdin.write(rman_command.encode())

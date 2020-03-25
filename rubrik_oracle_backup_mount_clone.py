@@ -21,7 +21,7 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
 \b
     The source database is specified in a host:db format. The mount path is required. If the restore time is not
     provided the most recent recoverable time will be used. The host for the mount can be specified if it is not it
-    will be mounted on the source host. If the source database is on a RAC cluster the target must be a RAC cluster.
+    will be mounted on the source host. This is for a single instance database only, at present it will NOT work on RAC.
 \b
     Args:
         host_cluster_db (str): The hostname the database is running on : The database name.
@@ -52,7 +52,10 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
             host_id = rbk.get_rac_id(rubrik, cluster_info['id'], target_host)
     else:
         host_id = rbk.get_host_id(rubrik, cluster_info['id'], target_host)
-    # Use the provided time or if no time has been provided use the teh most recent recovery point
+    # Make sure this is being run on the target host
+    if target_host.split('.')[0] != os.uname()[1].split('.')[0]:
+        raise RubrikOracleBackupMountCloneError("This program must be run on the target host: {}".format(target_host))
+    # Use the provided time or if no time has been provided use the the most recent recovery point
     if time_restore:
         time_ms = rbk.epoch_time(time_restore, timezone)
         print("Using {} for mount.". format(time_restore))
@@ -68,38 +71,50 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
     utc = pytz.utc
     start_time = utc.localize(datetime.datetime.fromisoformat(live_mount_info['startTime'][:-1])).astimezone(cluster_timezone)
     fmt = '%Y-%m-%d %H:%M:%S %Z'
-    print(live_mount_info['id'])    # debug
     print("Live mount status: {}, Started at {}.".format(live_mount_info['status'], start_time.strftime(fmt)))
     live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'QUEUED', 10)
     live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'RUNNING', 20)
     live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'FINISHING', 10)
-    print(live_mount_info)  # debug
     if rubrik.get('internal', '/oracle/request/{}'.format(live_mount_info['id']), timeout=60)['status'] != "SUCCEEDED":
         return live_mount_info
     # Now determine the new live mount directory
     new_live_mount_directories = os.listdir(path)
     live_mount_directory = list(set(new_live_mount_directories) - set(live_mount_directories))
     if len(live_mount_directory) == 1:
-        backup_path = path + '/' + live_mount_directory[0]
+        backup_path = os.path.join(path, live_mount_directory[0])
     else:
         raise RubrikOracleBackupMountCloneError("Multiple directories were created in {} during this operation. Live mount directory cannot be determined".format(path))
+    print("Using the live mount path: {}".format(backup_path))
     auto_backup_file = rbk.get_latest_autobackup(backup_path)
-    with open(oracle_home + '/dbs/init{}.ora'.format(new_oracle_name), 'w') as file:
-        file.write('db_name={}'.format(host_cluster_db[1]))
+    # Create the directory for the Oracle files (redo, temp, etc)
+    oracle_files_path = os.path.join(files_directory, new_oracle_name)
+    print("Creating Oracle files directory {} if not present.".format(oracle_files_path))
+    os.makedirs(oracle_files_path, exist_ok=True)
+    # Create the audit directory
+    audit_dir = os.path.join(oracle_files_path, 'adump')
+    print("Creating audit dump directory {} if not present.".format(oracle_files_path))
+    os.makedirs(audit_dir, exist_ok=True)
+    # Create the FRA directory
+    fast_recovery_area = os.path.join(oracle_files_path, 'fast_recovery_area')
+    print("Creating fast recovery area directory {} if not present.".format(fast_recovery_area))
+    os.makedirs(fast_recovery_area, exist_ok=True)
+    # Create the temporary pfile to start Oracle
+    init_file = os.path.join(oracle_home, 'dbs', 'init{}.ora'.format(new_oracle_name))
+    print("Creating new temporary init file {}".format(init_file))
+    with open(init_file, 'w') as file:
+        file.write('db_name={}\n'.format(host_cluster_db[1]))
+    print("Setting env variable ORACLE_HOME={}, ORACLE_SID={}.".format(oracle_home, new_oracle_name))
     os.environ["ORACLE_HOME"] = oracle_home
     os.environ["ORACLE_SID"] = new_oracle_name
-    print(rbk.sqlplus_sysdba(oracle_home, 'startup nomount'))
+    print(rbk.sqlplus_sysdba(oracle_home, "startup force nomount pfile='{}'".format(init_file)))
     print(rbk.rman(oracle_home, "restore spfile from '{}';".format(auto_backup_file)))
     print(rbk.sqlplus_sysdba(oracle_home, 'startup force nomount'))
     print(rbk.sqlplus_sysdba(oracle_home, "alter system set db_unique_name='{}' scope=spfile;".format(new_oracle_name)))
     print(rbk.sqlplus_sysdba(oracle_home, 'startup force nomount;'))
-    oracle_files_path = files_directory + '/{}'.format(new_oracle_name)
-    os.makedirs(oracle_files_path, exist_ok=True)
     print(rbk.rman(oracle_home, "restore controlfile to '{0}/control01.ctl' from '{1}';".format(oracle_files_path, auto_backup_file)))
     print(rbk.sqlplus_sysdba(oracle_home, "alter system set control_files = '{}/control01.ctl' scope=spfile;".format(oracle_files_path)))
-    audit_dir = oracle_files_path + '/adump'
-    os.makedirs(audit_dir, exist_ok=True)
     print(rbk.sqlplus_sysdba(oracle_home, "alter system set audit_file_dest = '{}' scope=spfile;".format(audit_dir)))
+    print(rbk.sqlplus_sysdba(oracle_home, "alter system set db_recovery_file_dest = '{}' scope=spfile;".format(fast_recovery_area)))
     print(rbk.sqlplus_sysdba(oracle_home, 'startup force mount;'))
     print(rbk.rman(oracle_home, 'crosscheck copy; crosscheck backup; delete noprompt expired copy; delete noprompt expired backup;'))
     print(rbk.rman(oracle_home, "catalog start with '{}' noprompt;".format(backup_path)))
@@ -150,7 +165,12 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
     / """.format(oracle_files_path)
     print(rbk.sqlplus_sysdba(oracle_home, move_temp_sql))
 
-    print(rbk.rman(oracle_home, 'recover database;'))
+    # Fix the time format for Oracle if set and recover the database
+    if time_restore:
+        time_restore = time_restore.replace("T", "")
+        print(rbk.rman(oracle_home, """recover database until time "TO_DATE('{}','YYYY-MM-DD HH24:MI:SS')"; """.format(time_restore)))
+    else:
+        print(rbk.rman(oracle_home, "recover database;"))
     # Switch to noarchive log mode
     print(rbk.sqlplus_sysdba(oracle_home, 'alter database noarchivelog;'))
     # Now change the database name
