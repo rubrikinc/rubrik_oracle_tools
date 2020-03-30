@@ -12,34 +12,27 @@ from subprocess import PIPE, Popen
 @click.command()
 @click.argument('host_cluster_db')
 @click.argument('path')
-@click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
-@click.option('--target_host', '-h', type=str, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
-@click.option('--oracle_home', '-o', type=str, help='ORACLE_HOME path for this database')
-@click.option('--new_oracle_name', '-n', type=str, help='Name for the cloned database')
-@click.option('--files_directory', '-f', type=str, help='Location for files written to the host, control files, redo, etc.')
+@click.option('--target_host', '-h', type=str, required=True, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount.')
+@click.option('--new_oracle_name', '-n', type=str, required=True, help='Name for the cloned live mounted database')
+@click.option('--files_directory', '-f', type=str, required=True, help='Location for Oracle files written to the host, control files, redo, etc.')
+@click.option('--oracle_home', '-o', type=str, help='ORACLE_HOME path for this database clone')
+@click.option('--time_restore', '-t', type=str, help='The point in time for the database clone in  iso 8601 format (2019-04-30T18:23:21)')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
 def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracle_name, files_directory, debug_level):
     """
     This will mount the requested Rubrik Oracle backup set on the provided path.
 
 \b
-    The source database is specified in a host:db format. The mount path is required. If the restore time is not
-    provided the most recent recoverable time will be used. The host for the mount can be specified if it is not it
-    will be mounted on the source host. This is for a single instance database only, at present it will NOT work on RAC.
+    The source database is specified in a host:db format. The backup mount path is required. If the restore time is not
+    provided the most recent recoverable time will be used. The host for the mount clone must be specified along with
+    the directory for the temp, redo, etc. and the new database name. If the Oracle Home is not specified the ORACLE
+    HOME path from the source database will be used. This is for a single instance database only, at present it will
+    NOT work on RAC.
 \b
     Args:
         host_cluster_db (str): The hostname the database is running on : The database name.
         path (str): The path for the mount. This must exist on the requested host.
-        time_restore (str): The point in time for the backup set in  iso 8601 format (2019-04-30T18:23:21).
-        target_host (str): The host to mount the backup set. If not specified the source host will be used.
-                            IF source DB in on RAC this must be a RAC Cluster.
-        oracle_home (str): The ORACLE_HOME on the host where there live mount is being done.
-        new_oracle_name (str): The new name for the live mounted database.
-        files_directory (str): Path on the host where the Oracle files such as the control files, redo logs, temp, etc.
-        debug_level (str): The logging level: DEBUG, INFO, WARNING, or CRITICAL
-\b
-    Returns:
-        live_mount_info (dict): The information about the requested files only mount returned from the Rubrik CDM.
+
     """
     numeric_level = getattr(logging, debug_level.upper(), None)
     if not isinstance(numeric_level, int):
@@ -54,9 +47,6 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
     host_cluster_db = host_cluster_db.split(":")
     oracle_db_id = rbk.get_oracle_db_id(rubrik, host_cluster_db[1], host_cluster_db[0])
     oracle_db_info = rbk.get_oracle_db_info(rubrik, oracle_db_id)
-    # If not target host is provide mount the backup pieces on the source database host
-    if not target_host:
-        target_host = host_cluster_db[0]
     # If the source database is on a RAC cluster the target must be a RAC cluster otherwise it will be an Oracle Host
     if 'racName' in oracle_db_info.keys():
         if oracle_db_info['racName']:
@@ -74,7 +64,12 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
         logger.info("Using most recent recovery point for mount.")
         oracle_db_info = rbk.get_oracle_db_info(rubrik, oracle_db_id)
         time_ms = rbk.epoch_time(oracle_db_info['latestRecoveryPoint'], timezone)
-    # List directories in path to allow us to find the new directory after the mount
+    # Check ORACLE_HOME and set to source ORACLE_HOME is not provided
+    if not oracle_home:
+        oracle_home = oracle_db_info['oracleHome']
+    if not os.path.exists(oracle_home):
+        raise RubrikOracleBackupMountCloneError("The ORACLE_HOME: {} does not exist on the target host: {}".format(oracle_home, target_host))
+    # Get directories in path to allow us to find the new directory after the mount
     live_mount_directories = os.listdir(path)
     logger.warning("Starting the mount of the requested {} backup pieces on {}.".format(host_cluster_db[1], target_host))
     live_mount_info = rbk.live_mount(rubrik, oracle_db_id, host_id, time_ms, files_only=True, mount_path=path)
