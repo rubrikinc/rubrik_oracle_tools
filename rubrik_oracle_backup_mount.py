@@ -3,7 +3,6 @@ import rubrik_oracle_module as rbk
 import click
 import datetime
 import pytz
-import time
 
 @click.command()
 @click.argument('host_cluster_db')
@@ -61,12 +60,18 @@ def cli(host_cluster_db, path, time_restore, target_host, no_wait):
     utc = pytz.utc
     start_time = utc.localize(datetime.datetime.fromisoformat(live_mount_info['startTime'][:-1])).astimezone(cluster_timezone)
     fmt = '%Y-%m-%d %H:%M:%S %Z'
-    print("Live mount status: {}, Started at {}.".format(live_mount_info['status'], start_time.strftime(fmt)))
+    print("Live mount requested at {}.".format(start_time.strftime(fmt)))
     if no_wait:
         return live_mount_info
-    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'QUEUED', 3)
-    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'RUNNING', 10)
-    return live_mount_info
+    else:
+        live_mount_info = rbk.async_requests_wait(rubrik, live_mount_info['id'], 12)
+        print("Async request completed with status: {}".format(live_mount_info['status']))
+        if live_mount_info['status'] != "SUCCEEDED":
+            raise RubrikOracleBackupMountError(
+                "Mount of backup files did not complete successfully. Mount ended with status {}".format(
+                    live_mount_info['status']))
+        print("Live mount of the backup files completed.")
+        return live_mount_info
 
 
 class RubrikOracleBackupMountError(rbk.NoTraceBackWithLineNumber):

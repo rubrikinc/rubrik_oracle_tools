@@ -1,5 +1,7 @@
 import click
 import rubrik_oracle_module as rbk
+import logging
+import sys
 import pytz
 import datetime
 
@@ -24,10 +26,13 @@ def cli(host_cluster_db, new_oracle_name, oracle_home, all):
     Returns:
 
     """
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(stream=sys.stdout, level=logging.WARNING, format='%(asctime)s: %(message)s',
+                        datefmt='%H:%M:%S')
     rubrik = rbk.connect_rubrik()
     cluster_info = rbk.get_cluster_info(rubrik)
     timezone = cluster_info['timezone']['timezone']
-    print("Connected to cluster: {}, version: {}, Timezone: {}.".format(cluster_info['name'], cluster_info['version'], timezone))
+    logger.warning("Connected to cluster: {}, version: {}, Timezone: {}.".format(cluster_info['name'], cluster_info['version'], timezone))
     host_cluster_db = host_cluster_db.split(":")
     live_mount_ids = rbk.get_oracle_live_mount_id(rubrik, cluster_info['id'], host_cluster_db[1], host_cluster_db[0])
     new_oracle_name = new_oracle_name.split(',')
@@ -46,33 +51,34 @@ def cli(host_cluster_db, new_oracle_name, oracle_home, all):
                 for live_mount_id in live_mount_ids:
                     unmount_info = rbk.live_mount_delete(rubrik, live_mount_id, force)
                     start_time = utc.localize(datetime.datetime.fromisoformat(unmount_info['startTime'][:-1])).astimezone(cluster_timezone)
-                    print("Rubrik Unmount status: {}, Started at {}.".format(unmount_info['status'], start_time.strftime(fmt)))
-                    unmount_info = rbk.request_status_wait_loop(rubrik, unmount_info['id'], 'QUEUED', 3)
-                    unmount_info = rbk.request_status_wait_loop(rubrik, unmount_info['id'], 'RUNNING', 10)
-                    unmount_info = rbk.request_status_wait_loop(rubrik, unmount_info['id'], 'FINISHING', 5)
-                    unmount_status = rubrik.get('internal', '/oracle/request/{}'.format(unmount_info['id']), timeout=60)['status']
-                    if unmount_status != "SUCCEEDED":
-                        print("Unmount of backup files failed with status: {}")
+                    logger.info("Live mount unmount requested at {}.".format(start_time.strftime(fmt)))
+                    unmount_info = rbk.async_requests_wait(rubrik, unmount_info['id'], 20)
+                    logger.info("Async request completed with status: {}".format(unmount_info['status']))
+                    if unmount_info['status'] != "SUCCEEDED":
+                        logger.warning("Unmount of backup files failed with status: {}".format(unmount_info['status']))
+                    else:
+                        logger.warning("Live mount of backup data files with id: {} has been unmounted.".format(live_mount_id))
                 for name in new_oracle_name:
                     rbk.oracle_db_clone_cleanup(name, oracle_home)
-                    print("Clone database {} has been cleaned.".format(name))
+                    logger.warning("Clone database {} has been dropped.".format(name))
                 return
             else:
                 raise RubrikOracleUnmountError(
                     "More than one backup of {} is live mounted on {}. Use the --all flag to unmount them all.".format(host_cluster_db[1], host_cluster_db[0]))
         else:
             unmount_info = rbk.live_mount_delete(rubrik, live_mount_ids[0], force)
-
             start_time = utc.localize(datetime.datetime.fromisoformat(unmount_info['startTime'][:-1])).astimezone(
                 cluster_timezone)
-            print("Rubrik Unmount status: {}, Started at {}.".format(unmount_info['status'], start_time.strftime(fmt)))
-            unmount_info = rbk.request_status_wait_loop(rubrik, unmount_info['id'], 'QUEUED', 3)
-            unmount_info = rbk.request_status_wait_loop(rubrik, unmount_info['id'], 'RUNNING', 10)
-            unmount_info = rbk.request_status_wait_loop(rubrik, unmount_info['id'], 'FINISHING', 5)
-            if rubrik.get('internal', '/oracle/request/{}'.format(unmount_info['id']), timeout=60)[
-                'status'] != "SUCCEEDED":
-                return unmount_info
+            logger.info("Live mount unmount requested at {}.".format(start_time.strftime(fmt)))
+            logger.warning("Unmounting backup files...")
+            unmount_info = rbk.async_requests_wait(rubrik, unmount_info['id'], 20)
+            logger.info("Async request completed with status: {}".format(unmount_info['status']))
+            if unmount_info['status'] != "SUCCEEDED":
+                raise RubrikOracleUnmountError("Unmount of the {} database live mounted on {} did not succeed. Request completed with status {}.".format(host_cluster_db[1], host_cluster_db[0], unmount_info['status']))
+            else:
+                logger.warning("Backup files have been unmounted.")
             rbk.oracle_db_clone_cleanup(new_oracle_name[0], oracle_home)
+            logger.warning("Clone database {} has been dropped.".format(new_oracle_name[0]))
             return
 
 
