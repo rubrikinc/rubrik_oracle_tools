@@ -63,7 +63,7 @@ def cli(host_cluster_db, target_host, time_restore, oracle_home, new_oracle_name
     live_mount_info = rbk.async_requests_wait(rubrik, live_mount_info['id'], 20)
     print("Async request completed with status: {}".format(live_mount_info['status']))
     if live_mount_info['status'] != "SUCCEEDED":
-        raise RubrikOracleDBCloneMountError(
+        raise RubrikOracleDBMountCloneError(
             "Mount of backup files did not complete successfully. Mount ended with status {}".format(
                 live_mount_info['status']))
     print("Live mount of the databases completed. Changing name...")
@@ -73,7 +73,7 @@ def cli(host_cluster_db, target_host, time_restore, oracle_home, new_oracle_name
     return
 
 
-class RubrikOracleDBCloneMountError(rbk.NoTraceBackWithLineNumber):
+class RubrikOracleDBMountCloneError(rbk.NoTraceBackWithLineNumber):
     """
         Renames object so error is named with calling script
     """
