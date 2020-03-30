@@ -59,15 +59,25 @@ def cli(host_cluster_db, target_host, time_restore, oracle_home, new_oracle_name
     utc = pytz.utc
     start_time = utc.localize(datetime.datetime.fromisoformat(live_mount_info['startTime'][:-1])).astimezone(cluster_timezone)
     fmt = '%Y-%m-%d %H:%M:%S %Z'
-    print("Live mount status: {}, Started at {}.".format(live_mount_info['status'], start_time.strftime(fmt)))
-    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'QUEUED', 10)
-    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'RUNNING', 20)
-    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'FINISHING', 10)
-    if rubrik.get('internal', '/oracle/request/{}'.format(live_mount_info['id']), timeout=60)['status'] != "SUCCEEDED":
-        return live_mount_info
+    print("Live mount requested at {}.".format(start_time.strftime(fmt)))
+    live_mount_info = rbk.async_requests_wait(rubrik, live_mount_info['id'], 20)
+    print("Async request completed with status: {}".format(live_mount_info['status']))
+    if live_mount_info['status'] != "SUCCEEDED":
+        raise RubrikOracleDBCloneMountError(
+            "Mount of backup files did not complete successfully. Mount ended with status {}".format(
+                live_mount_info['status']))
+    print("Live mount of the databases completed. Changing name...")
+
     rbk.oracle_db_rename(host_cluster_db[1], oracle_home, new_oracle_name)
     print("DB Live Mount with new name {} complete.".format(new_oracle_name))
     return
+
+
+class RubrikOracleDBCloneMountError(rbk.NoTraceBackWithLineNumber):
+    """
+        Renames object so error is named with calling script
+    """
+    pass
 
 
 if __name__ == "__main__":

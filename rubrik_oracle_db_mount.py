@@ -54,9 +54,22 @@ def cli(host_cluster_db, target_host, time_restore, no_wait):
     print("Live mount status: {}, Started at {}.".format(live_mount_info['status'], start_time.strftime(fmt)))
     if no_wait:
         return live_mount_info
-    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'QUEUED', 3)
-    live_mount_info = rbk.request_status_wait_loop(rubrik, live_mount_info['id'], 'RUNNING', 10)
-    return live_mount_info
+    else:
+        live_mount_info = rbk.async_requests_wait(rubrik, live_mount_info['id'], 12)
+        print("Async request completed with status: {}".format(live_mount_info['status']))
+        if live_mount_info['status'] != "SUCCEEDED":
+            raise RubrikOracleDBMountError(
+                "Mount of Oracle DB did not complete successfully. Mount ended with status {}".format(
+                    live_mount_info['status']))
+        print("Live mount of the backup files completed.")
+        return live_mount_info
+
+
+class RubrikOracleDBMountError(rbk.NoTraceBackWithLineNumber):
+    """
+        Renames object so error is named with calling script
+    """
+    pass
 
 
 if __name__ == "__main__":
