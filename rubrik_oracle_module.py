@@ -20,10 +20,6 @@ import urllib3
 urllib3.disable_warnings()
 logger = logging.getLogger(__name__)
 
-def test_test():
-    logger.info("This is from the module")
-    logger.debug("This is debug from rbk.")
-
 
 class NoTraceBackWithLineNumber(Exception):
     """
