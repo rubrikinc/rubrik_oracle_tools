@@ -80,7 +80,7 @@ def get_oracle_db_id(rubrik, oracle_db_name, oracle_host_name):
     oracle_id = ''
     # Find the oracle_db object with the correct hostName or RAC cluster name.
     # Instance names can be stored/entered with and without the domain name so
-    # we will compare the hostname with the domain.
+    # we will compare the hostname without the domain.
     if is_ip(oracle_host_name):
         raise RubrikOracleModuleError("A hostname is required for the Oracle host, do not use an IP address.")
     oracle_host_name = oracle_host_name.split('.')[0]
