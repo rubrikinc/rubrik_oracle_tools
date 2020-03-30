@@ -2,6 +2,7 @@
 """Module of functions for Rubrik Oracle
 """
 import rubrik_cdm
+import logging
 import datetime
 import pytz
 import json
@@ -17,6 +18,11 @@ from yaspin import yaspin
 import urllib3
 
 urllib3.disable_warnings()
+logger = logging.getLogger(__name__)
+
+def test_test():
+    logger.info("This is from the module")
+    logger.debug("This is debug from rbk.")
 
 
 class NoTraceBackWithLineNumber(Exception):
@@ -430,41 +436,36 @@ def is_ip(hostname):
         return False
 
 
-def request_status_wait_loop(rubrik, requests_id, condition, timeout):
+def async_requests_wait(rubrik, requests_id, timeout):
     timeout_start = time.time()
-    waiting = False
-    oracle_request = {}
+    terminal_states = ['FAILED', 'CANCELED', 'SUCCEEDED']
     while time.time() < timeout_start + (timeout * 60):
         oracle_request = rubrik.get('internal', '/oracle/request/{}'.format(requests_id), timeout=60)
-        if oracle_request['status'] != condition:
+        if oracle_request['status'] in terminal_states:
             break
-        waiting = True
-        with yaspin():
-            time.sleep(3)
-    if oracle_request['status'] == condition:
+        with yaspin(text='Request status: {}'.format(oracle_request['status'])):
+            time.sleep(10)
+    if oracle_request['status'] not in terminal_states:
         raise RubrikOracleScriptTimeoutError(
-            "\nTimeout: Live Mount status has been {0} for longer than the timeout period of {1} minutes. The Live Mount will remain {0}  and the script will exit.".format(
-                condition, timeout))
+            "\nTimeout: Async request status has been {0} for longer than the timeout period of {1} minutes. The request will remain active (current status: {0})  and the script will exit.".format(
+                oracle_request['status'], timeout))
     else:
-        if waiting:
-            print('')
-        print("Live mount status: {}".format(oracle_request['status']))
         return oracle_request
 
 
 def oracle_db_rename(oracle_sid, oracle_home, new_oracle_name):
     os.environ["ORACLE_HOME"] = oracle_home
     os.environ["ORACLE_SID"] = oracle_sid
-    print(sqlplus_sysdba(oracle_home, 'shutdown immediate'))
-    print(sqlplus_sysdba(oracle_home, 'startup mount'))
+    logger.info(sqlplus_sysdba(oracle_home, 'shutdown immediate'))
+    logger.info(sqlplus_sysdba(oracle_home, 'startup mount'))
     # Change the database name
     logfile = oracle_home + '/dbs/nid_' + new_oracle_name + '.log'
-    print("NID Logfile: {}".format(logfile))
+    logger.info("NID Logfile: {}".format(logfile))
     session = Popen(['nid', 'target=/', 'dbname={}'.format(new_oracle_name), 'logfile={}'.format(logfile)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
     stdout, stderr = session.communicate()
-    print(stdout.decode())
+    logger.info(stdout.decode())
     # Create an init file from the spfile
-    print(sqlplus_sysdba(oracle_home, 'create pfile from spfile;'))
+    logger.info(sqlplus_sysdba(oracle_home, 'create pfile from spfile;'))
     # Rename the init file
     os.rename("{}/dbs/init{}.ora".format(oracle_home, oracle_sid), "{}/dbs/init{}.ora".format(oracle_home, new_oracle_name))
     # Rename the password file if present
@@ -475,22 +476,22 @@ def oracle_db_rename(oracle_sid, oracle_home, new_oracle_name):
     os.rename("{}/dbs/{}_control2".format(oracle_home, oracle_sid), "{}/dbs/{}_control2".format(oracle_home, new_oracle_name))
     # Change the database name in all the parameters in the init file
     status = subprocess.check_output("sed -i 's/{0}/{1}/g' {2}/dbs/init{1}.ora".format(oracle_sid, new_oracle_name, oracle_home), shell=True)
-    print(status.decode())
+    logger.info(status.decode())
     # Switch the environment to the new database name
     os.environ["ORACLE_SID"] = new_oracle_name
     # Open the database
-    print(sqlplus_sysdba(oracle_home, 'create spfile from pfile;'))
-    print(sqlplus_sysdba(oracle_home, 'startup mount;'))
-    print(sqlplus_sysdba(oracle_home, 'alter database open resetlogs;'))
+    logger.info(sqlplus_sysdba(oracle_home, 'create spfile from pfile;'))
+    logger.info(sqlplus_sysdba(oracle_home, 'startup mount;'))
+    logger.info(sqlplus_sysdba(oracle_home, 'alter database open resetlogs;'))
     return
 
 
 def oracle_db_clone_cleanup(oracle_sid, oracle_home):
     os.environ["ORACLE_HOME"] = oracle_home
     os.environ["ORACLE_SID"] = oracle_sid
-    print(sqlplus_sysdba(oracle_home, 'shutdown abort;'))
-    print(sqlplus_sysdba(oracle_home, 'startup force mount exclusive restrict;'))
-    print(sqlplus_sysdba(oracle_home, 'drop database;'))
+    logger.info(sqlplus_sysdba(oracle_home, 'shutdown abort;'))
+    logger.info(sqlplus_sysdba(oracle_home, 'startup force mount exclusive restrict;'))
+    logger.info(sqlplus_sysdba(oracle_home, 'drop database;'))
     delete_dbs_files(oracle_home, 'arch*')
     delete_dbs_files(oracle_home, 'c-*')
     delete_dbs_files(oracle_home, 'hc_{}.dat'.format(oracle_sid))
@@ -501,7 +502,7 @@ def oracle_db_clone_cleanup(oracle_sid, oracle_home):
 
 
 def sqlplus_sysdba(oracle_home, sql_command):
-    print("SQL: {}".format(sql_command))
+    logger.info("SQL: {}".format(sql_command))
     sql_args = [os.path.join(oracle_home, 'bin', 'sqlplus'), '-S', '/', 'as', 'sysdba']
     session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     session.stdin.write(sql_command.encode())
@@ -510,7 +511,7 @@ def sqlplus_sysdba(oracle_home, sql_command):
 
 
 def rman(oracle_home, rman_command):
-    print("RMAN: {}".format(rman_command))
+    logger.info("RMAN: {}".format(rman_command))
     sql_args = [os.path.join(oracle_home, 'bin', 'rman'), 'target', '/']
     session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     session.stdin.write(rman_command.encode())
@@ -524,7 +525,7 @@ def delete_dbs_files(oracle_home, pattern):
         try:
             os.remove(file_path)
         except:
-            print("Error while deleting file: {}".format(file_path))
+            logger.warning("Error while deleting file: {}".format(file_path))
 
 
 def get_latest_autobackup(path):
