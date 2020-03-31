@@ -198,7 +198,7 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
     logger.info(rbk.sqlplus_sysdba(oracle_home, 'startup mount'))
     logfile = oracle_files_path + '/nid_' + new_oracle_name + '.log'
     logger.info("NID Logfile: {}".format(logfile))
-    session = Popen(['nid', 'target=/', 'dbname={}'.format(new_oracle_name), 'logfile={}'.format(logfile)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    session = Popen([os.path.join(oracle_home, 'bin', 'nid'), 'target=/', 'dbname={}'.format(new_oracle_name), 'logfile={}'.format(logfile)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
     stdout, stderr = session.communicate()
     nid_return = "NID standard out: {}, standard error: {}.".format(stdout.decode(), stderr.decode())
     logger.info(nid_return)
