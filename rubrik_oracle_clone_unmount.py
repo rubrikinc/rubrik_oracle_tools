@@ -11,7 +11,8 @@ import datetime
 @click.option('--new_oracle_name', '-n', required=True, type=str, help='Oracle database clone name. If unmounting more than one separate with commas.')
 @click.option('--oracle_home', '-o', required=True, type=str, help='ORACLE_HOME path for the mounted database(s)')
 @click.option('--all', '-a', is_flag=True, help='Unmount all mounts from the source host:db. Provide all the clone names separated by commas.')
-def cli(host_cluster_db, new_oracle_name, oracle_home, all):
+@click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
+def cli(host_cluster_db, new_oracle_name, oracle_home, all, debug_level):
     """
     This will unmount a Rubrik live mount that has had the name changed after the live mount
      using the the live mount host:Original DB Name, new Oracle DB name and the ORACLE_HOME
@@ -21,8 +22,11 @@ def cli(host_cluster_db, new_oracle_name, oracle_home, all):
         host_cluster_db (str): The hostname the database is running on : The source database name
 
     """
+    numeric_level = getattr(logging, debug_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: {}}'.format(debug_level))
     logger = logging.getLogger(__name__)
-    logging.basicConfig(stream=sys.stdout, level=logging.WARNING, format='%(asctime)s: %(message)s',
+    logging.basicConfig(stream=sys.stdout, level=numeric_level, format='%(asctime)s: %(message)s',
                         datefmt='%H:%M:%S')
     rubrik = rbk.connect_rubrik()
     cluster_info = rbk.get_cluster_info(rubrik)
@@ -31,10 +35,14 @@ def cli(host_cluster_db, new_oracle_name, oracle_home, all):
     host_cluster_db = host_cluster_db.split(":")
     live_mount_ids = rbk.get_oracle_live_mount_id(rubrik, cluster_info['id'], host_cluster_db[1], host_cluster_db[0])
     new_oracle_name = new_oracle_name.split(',')
+    if host_cluster_db[1] in new_oracle_name:
+        raise RubrikOracleCloneUnmountError("Requesting drop of source database. This is not allowed in case that database is running on this host. Please only use the clone database names for the databases to be removed.")
     force = True
     cluster_timezone = pytz.timezone(timezone)
     utc = pytz.utc
     fmt = '%Y-%m-%d %H:%M:%S %Z'
+
+    exit(99)
     if not live_mount_ids:
         raise RubrikOracleCloneUnmountError("No live mounts found for {} live mounted on {}. ".format(host_cluster_db[1], host_cluster_db[0]))
     else:
