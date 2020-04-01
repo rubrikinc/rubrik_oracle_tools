@@ -24,7 +24,10 @@ def cli(host_cluster_db):
     print("Connected to cluster: {}, version: {}, Timezone: {}.".format(cluster_info['name'], cluster_info['version'], timezone))
     host_cluster_db = host_cluster_db.split(":")
     oracle_db_id = rbk.get_oracle_db_id(rubrik, host_cluster_db[1], host_cluster_db[0])
-    oracle_db_info = rbk.get_oracle_db_info(rubrik, oracle_db_id)
+    if oracle_db_id:
+        oracle_db_info = rbk.get_oracle_db_info(rubrik, oracle_db_id)
+    else:
+        raise RubrikOracleBackupInfoError("Database {} was not found on host {}.".format(host_cluster_db[1], host_cluster_db[0]))
     print("*" * 100)
     print("Database Details: ")
     print("Database name: {}   ID: {}".format(oracle_db_info['name'], oracle_db_info['id']))
@@ -37,13 +40,20 @@ def cli(host_cluster_db):
     print("*" * 100)
     print("Available Database Backups (Snapshots):")
     for snap in oracle_snapshot_info['data']:
-        print("Database Backup Date: {}   Snapshot ID: {}".format(rbk.cluster_time(snap['date'], timezone), snap['id']))
+        print("Database Backup Date: {}   Snapshot ID: {}".format(rbk.cluster_time(snap['date'], timezone)[:-6], snap['id']))
     oracle_db_recoverable_range_info = rbk.get_oracle_db_recoverable_range(rubrik,  oracle_db_id)
     print("*" * 100)
     print("Recoverable ranges:")
     for recovery_range in oracle_db_recoverable_range_info['data']:
         print("Begin Time: {}   End Time: {}".format(rbk.cluster_time(recovery_range['beginTime'], timezone)[:-6],
                                                      rbk.cluster_time(recovery_range['endTime'], timezone)[:-6]))
+
+
+class RubrikOracleBackupInfoError(rbk.NoTraceBackWithLineNumber):
+    """
+        Renames object so error is named with calling script
+    """
+    pass
 
 
 if __name__ == "__main__":
