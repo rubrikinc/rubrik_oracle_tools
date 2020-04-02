@@ -41,8 +41,6 @@ def cli(host_cluster_db, new_oracle_name, oracle_home, all, debug_level):
     cluster_timezone = pytz.timezone(timezone)
     utc = pytz.utc
     fmt = '%Y-%m-%d %H:%M:%S %Z'
-
-    exit(99)
     if not live_mount_ids:
         raise RubrikOracleCloneUnmountError("No live mounts found for {} live mounted on {}. ".format(host_cluster_db[1], host_cluster_db[0]))
     else:
