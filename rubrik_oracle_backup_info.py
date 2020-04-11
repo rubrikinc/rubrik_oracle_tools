@@ -1,30 +1,37 @@
 
 import click
-import rubrik_oracle_module as rbk
+import logging
+import sys
+# import rubrik_oracle_module as rbk
+import rbs_oracle_common
 
 
 @click.command()
-@click.argument('host_cluster_db')
-def cli(host_cluster_db):
+@click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
+@click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
+def cli(source_host_db, debug_level):
     """
     Displays information about the Oracle database object, the available snapshots, and recovery ranges.
-
-\b
-    Args:
-        host_cluster_db (str): The hostname the database is running on : The database name
-\b
-    Returns:
-        None: Information is printed to standard out
     """
-    rubrik = rbk.connect_rubrik()
-    cluster_info = rbk.get_cluster_info(rubrik)
+    numeric_level = getattr(logging, debug_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: {}'.format(debug_level))
+    logger = logging.getLogger()
+    logger.setLevel(logging.NOTSET)
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(numeric_level)
+    console_formatter = logging.Formatter('%(asctime)s: %(message)s')
+    ch.setFormatter(console_formatter)
+    logger.addHandler(ch)
+
+    rubrik = rbs_oracle_common.RubrikConnection()
+    cluster_info = rubrik.cluster
     timezone = cluster_info['timezone']['timezone']
-    print("")
     print("*" * 100)
     print("Connected to cluster: {}, version: {}, Timezone: {}.".format(cluster_info['name'], cluster_info['version'], timezone))
-    host_cluster_db = host_cluster_db.split(":")
-    oracle_db_id = rbk.get_oracle_db_id(rubrik, host_cluster_db[1], host_cluster_db[0])
-    oracle_db_info = rbk.get_oracle_db_info(rubrik, oracle_db_id)
+    source_host_db = source_host_db.split(":")
+    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
+    oracle_db_info = database.get_oracle_db_info()
     print("*" * 100)
     print("Database Details: ")
     print("Database name: {}   ID: {}".format(oracle_db_info['name'], oracle_db_info['id']))
@@ -33,17 +40,19 @@ def cli(host_cluster_db):
     elif 'racName' in oracle_db_info.keys():
         print("Rac Cluster Name: {}    Instances: {}".format(oracle_db_info['racName'], oracle_db_info['numInstances']))
     print("SLA: {}    Log Backup Frequency: {} min.    Log Retention: {} hrs.".format(oracle_db_info['effectiveSlaDomainName'], oracle_db_info['logBackupFrequencyInMinutes'], oracle_db_info['logRetentionHours']))
-    oracle_snapshot_info = rbk.get_oracle_db_snapshots(rubrik, oracle_db_id)
+    oracle_snapshot_info = database.get_oracle_db_snapshots()
+    logger.debug(oracle_snapshot_info)
     print("*" * 100)
     print("Available Database Backups (Snapshots):")
     for snap in oracle_snapshot_info['data']:
-        print("Database Backup Date: {}   Snapshot ID: {}".format(rbk.cluster_time(snap['date'], timezone), snap['id']))
-    oracle_db_recoverable_range_info = rbk.get_oracle_db_recoverable_range(rubrik,  oracle_db_id)
+        print("Database Backup Date: {}   Snapshot ID: {}".format(database.cluster_time(snap['date'], timezone)[:-6], snap['id']))
+
+    oracle_db_recoverable_range_info = database.get_oracle_db_recoverable_range()
     print("*" * 100)
     print("Recoverable ranges:")
     for recovery_range in oracle_db_recoverable_range_info['data']:
-        print("Begin Time: {}   End Time: {}".format(rbk.cluster_time(recovery_range['beginTime'], timezone)[:-6],
-                                                     rbk.cluster_time(recovery_range['endTime'], timezone)[:-6]))
+        print("Begin Time: {}   End Time: {}".format(database.cluster_time(recovery_range['beginTime'], timezone)[:-6],
+                                                     database.cluster_time(recovery_range['endTime'], timezone)[:-6]))
 
 
 if __name__ == "__main__":
