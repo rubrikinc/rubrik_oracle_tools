@@ -2,7 +2,6 @@
 import click
 import logging
 import sys
-# import rubrik_oracle_module as rbk
 import rbs_oracle_common
 
 
