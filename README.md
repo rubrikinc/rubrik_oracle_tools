@@ -7,6 +7,8 @@ Some basic command line python scripts for managing Rubrik Oracle RBS backups.
 
 These scripts require python 3.7 or greater. This is generally not installed on most system and will need to be installed.
 
+Warning: this code is provided on a best effort basis and is not in any way officially supported or sanctioned by Rubrik. The code in this repository is provided as-is and the author accepts no liability for damages resulting from its use.
+
 # :hammer: Installation
 ## Python 3.7 installation instructions for OEL/RHEL linux. 
 ------------------------------------------------------------
