@@ -36,7 +36,7 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
     """
     numeric_level = getattr(logging, debug_level.upper(), None)
     if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: {}}'.format(debug_level))
+        raise ValueError('Invalid log level: {}'.format(debug_level))
     logger = logging.getLogger(__name__)
     logging.basicConfig(stream=sys.stdout, level=numeric_level, format='%(asctime)s: %(message)s',
                         datefmt='%H:%M:%S')
