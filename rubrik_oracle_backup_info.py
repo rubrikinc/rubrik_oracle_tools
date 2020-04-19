@@ -24,10 +24,8 @@ def cli(source_host_db, debug_level):
     logger.addHandler(ch)
 
     rubrik = rbs_oracle_common.RubrikConnection()
-    cluster_info = rubrik.cluster
-    timezone = cluster_info['timezone']['timezone']
     print("*" * 100)
-    print("Connected to cluster: {}, version: {}, Timezone: {}.".format(cluster_info['name'], cluster_info['version'], timezone))
+    print("Connected to cluster: {}, version: {}, Timezone: {}.".format(rubrik.name, rubrik.version, rubrik.timezone))
     source_host_db = source_host_db.split(":")
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
     oracle_db_info = database.get_oracle_db_info()
@@ -44,14 +42,14 @@ def cli(source_host_db, debug_level):
     print("*" * 100)
     print("Available Database Backups (Snapshots):")
     for snap in oracle_snapshot_info['data']:
-        print("Database Backup Date: {}   Snapshot ID: {}".format(database.cluster_time(snap['date'], timezone)[:-6], snap['id']))
+        print("Database Backup Date: {}   Snapshot ID: {}".format(database.cluster_time(snap['date'], rubrik.timezone)[:-6], snap['id']))
 
     oracle_db_recoverable_range_info = database.get_oracle_db_recoverable_range()
     print("*" * 100)
     print("Recoverable ranges:")
     for recovery_range in oracle_db_recoverable_range_info['data']:
-        print("Begin Time: {}   End Time: {}".format(database.cluster_time(recovery_range['beginTime'], timezone)[:-6],
-                                                     database.cluster_time(recovery_range['endTime'], timezone)[:-6]))
+        print("Begin Time: {}   End Time: {}".format(database.cluster_time(recovery_range['beginTime'], rubrik.timezone)[:-6],
+                                                     database.cluster_time(recovery_range['endTime'], rubrik.timezone)[:-6]))
 
 
 if __name__ == "__main__":
