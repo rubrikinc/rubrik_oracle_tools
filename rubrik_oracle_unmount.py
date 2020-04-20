@@ -44,8 +44,8 @@ def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait,  d
     if not live_mount_ids:
         raise RubrikOracleUnmountError("No live mounts found for {} live mounted on {}. ".format(source_host_db[1], mounted_host))
     elif len(live_mount_ids) == 1:
-        logger.info("Found live mount id: {} on {}".format(live_mount_ids[0], mounted_host))
-        logger.info("Deleting 1 live mount.")
+        logger.warning("Found live mount id: {} on {}".format(live_mount_ids[0], mounted_host))
+        logger.warning("Deleting 1 live mount.")
         delete_request = mount.live_mount_delete(live_mount_ids[0], force)
         if no_wait:
             logger.warning("Live mount id: {} Unmount status: {}.".format(live_mount_ids[0], delete_request['status']))
@@ -55,7 +55,7 @@ def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait,  d
             logger.debug(delete_request)
         unmount_info.append(delete_request)
     elif len(live_mount_ids) > 1 and all_mounts:
-        logger.info("Delete all mounts is set to {}. Deleting all mounts on {}".format(all_mounts, mounted_host))
+        logger.warning("Delete all mounts is set to {}. Deleting all mounts on {}".format(all_mounts, mounted_host))
         for live_mount_id in live_mount_ids:
             logger.debug(live_mount_id)
             logger.warning("Deleting live mount with id: {} on {}".format(live_mount_ids[0], mounted_host))
