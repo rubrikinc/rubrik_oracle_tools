@@ -17,6 +17,7 @@ def cli(source_host_db, host_target, time_restore, no_wait, debug_level):
 
 \b
     Gets the backup for the Oracle database on the Oracle database host and will live mount it on the host provided.
+
 \b
     Returns:
         live_mount_info (json); JSON text file with the Rubrik cluster response to the live mount request
