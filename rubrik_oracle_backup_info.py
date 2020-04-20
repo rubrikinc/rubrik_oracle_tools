@@ -52,5 +52,12 @@ def cli(source_host_db, debug_level):
                                                      database.cluster_time(recovery_range['endTime'], rubrik.timezone)[:-6]))
 
 
+class RubrikOracleBackupInfoError(rbs_oracle_common.NoTraceBackWithLineNumber):
+    """
+        Renames object so error is named with calling script
+    """
+    pass
+
+
 if __name__ == "__main__":
     cli()

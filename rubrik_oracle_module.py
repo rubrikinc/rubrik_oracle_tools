@@ -77,15 +77,18 @@ def get_oracle_db_id(rubrik, oracle_db_name, oracle_host_name):
     #     return oracle_db_id
 
     oracle_dbs = rubrik.get("internal", "/oracle/db?name={}".format(oracle_db_name), timeout=60)
+    logger.debug("Return from /oracle/db?name={}:".format(oracle_db_name))
+    logger.debug(oracle_dbs)
     oracle_id = ''
     # Find the oracle_db object with the correct hostName or RAC cluster name.
     # Instance names can be stored/entered with and without the domain name so
     # we will compare the hostname without the domain.
+    logger.debug("Searching for the hostname match in the list of returned databases")
     if is_ip(oracle_host_name):
         raise RubrikOracleModuleError("A hostname is required for the Oracle host, do not use an IP address.")
     oracle_host_name = oracle_host_name.split('.')[0]
     if oracle_dbs['total'] == 0:
-        raise RubrikOracleModuleError("The {} object '{}' was not found on the Rubrik cluster.".format(oracle_db_name, oracle_host_name))
+        raise RubrikOracleModuleError("The database object '{}' was not found on the Rubrik cluster.".format(oracle_db_name))
     elif oracle_dbs['total'] > 0:
         for db in oracle_dbs['data']:
             if 'standaloneHostName' in db.keys():
@@ -99,6 +102,8 @@ def get_oracle_db_id(rubrik, oracle_db_name, oracle_host_name):
                 if any(instance['hostName'] == oracle_host_name for instance in  db['instances']):
                     oracle_id = db['id']
                     break
+    if not oracle_id:
+        raise RubrikOracleModuleError("The database '{}' on the host '{}' was not found on the Rubrik cluster.".format(oracle_db_name, oracle_host_name))
     return oracle_id
 
 
@@ -113,7 +118,7 @@ def get_oracle_db_info(rubrik, oracle_db_id):
     Returns:
         oracle_db_info (dict): The json returned  from the Rubrik CDM with the database information converted to a dictionary.
     """
-    oracle_db_info = rubrik.get('internal', '/oracle/db/{}'.format(oracle_db_id))
+    oracle_db_info = rubrik.get('internal', '/oracle/db/{}'.format(oracle_db_id), timeout=60)
     return oracle_db_info
 
 
@@ -201,7 +206,7 @@ def get_cluster_info(rubrik):
     Returns:
         cluster_info (dict): The information about the cluster returned from the Rubrik CDM.
     """
-    cluster_info = rubrik.get('v1','/cluster/me')
+    cluster_info = rubrik.get('v1','/cluster/me', timeout=60)
     return cluster_info
 
 
@@ -226,7 +231,7 @@ def live_mount(rubrik, oracle_db_id, host_id, time_ms, files_only=False, mount_p
         "targetMountPath": mount_path,
         "shouldMountFilesOnly": files_only
     }
-    live_mount_info = rubrik.post('internal', '/oracle/db/{}/mount'.format(oracle_db_id), payload)
+    live_mount_info = rubrik.post('internal', '/oracle/db/{}/mount'.format(oracle_db_id), payload, timeout=60)
     return live_mount_info
 
 
@@ -314,9 +319,12 @@ def get_oracle_live_mount_id(rubrik, primary_cluster_id, db_name, host_cluster):
     Returns:
         live_mount_id (str): The id of the requested live mount.
     """
+    logger.debug("get_oracle_live_mount_id(rubrik, {}, {}, {}".format(primary_cluster_id, db_name, host_cluster))
     oracle_live_mounts = rubrik.get('internal', '/oracle/db/mount?source_database_name={}'.format(db_name))
+    logger.debug("Oracle live mounts: {}".format(oracle_live_mounts))
     live_mount_id = []
     # On CDM 5.1.1+ the targetHostID id is the host or cluster name first.
+    logger.debug("Finding host or cluster '{}' match in Oracle live mounts.".format(host_cluster))
     for mount in oracle_live_mounts['data']:
         if host_cluster in mount['targetHostId']:
             live_mount_id.append(mount['id'])
@@ -325,6 +333,7 @@ def get_oracle_live_mount_id(rubrik, primary_cluster_id, db_name, host_cluster):
     # If no match the CDM release is pre 5.1.1 and we much find the id for the target host
     # Check if host_cluster is a RAC Cluster or a node in a RAC cluster so we can use the RAC cluster id
     rac_id = rubrik.get('internal', '/oracle/rac?name={}'.format(host_cluster))
+    logger.debug("RAC objects with the cluster name {}".format(host_cluster))
     mount_host_id = ''
     if rac_id['total'] == 0:
         rac_info = rubrik.get('internal', '/oracle/rac')
@@ -342,6 +351,7 @@ def get_oracle_live_mount_id(rubrik, primary_cluster_id, db_name, host_cluster):
                 mount_host_id = rac['id']
     if not mount_host_id:
         mount_host_id = get_host_id(rubrik, primary_cluster_id, host_cluster)
+        logger.debug("Host id found is {}".format(mount_host_id))
     host_id = mount_host_id .split(':::')[1]
     for mount in oracle_live_mounts['data']:
         if host_id == mount['targetHostId']:

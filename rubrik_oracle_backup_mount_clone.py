@@ -115,18 +115,10 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
     logger.warning("Restoring and configuring server parameter file.")
     logger.info(rbk.sqlplus_sysdba(oracle_home, "startup force nomount pfile='{}'".format(init_file)))
     logger.info(rbk.rman(oracle_home, "restore spfile from '{}';".format(auto_backup_file)))
-
-    logger.info("Setting audit_file_dest in spfile before starting instance.")
-    logger.info(rbk.sqlplus_sysdba(oracle_home, 'create pfile from spfile;'))
-    with open(init_file, 'r') as file:
-        file_data = file.read()
-    audit = re.compile("(audit_file_dest=')(.*)(')")
-    file_data = audit.sub(r'\1{}\3'.format(audit_dir), file_data)
-    with open(init_file, 'w') as file:
-        file.write(file_data)
-    logger.info(rbk.sqlplus_sysdba(oracle_home, 'create spfile from pfile;'))
-
-    logger.info(rbk.sqlplus_sysdba(oracle_home, 'startup force nomount'))
+    logger.info("Setting parameters in spfile before starting instance.")
+    spfile = os.path.join(oracle_home, 'dbs', 'spfile{}.ora'.format(new_oracle_name))
+    logger.info(rbk.sqlplus_sysdba(oracle_home, "alter system set spfile='{}';".format(spfile)))
+    logger.info(rbk.sqlplus_sysdba(oracle_home, "alter system set audit_file_dest='{}' scope=spfile;".format(audit_dir)))
     logger.info(rbk.sqlplus_sysdba(oracle_home, "alter system set db_unique_name='{}' scope=spfile;".format(new_oracle_name)))
     logger.info(rbk.sqlplus_sysdba(oracle_home, 'startup force nomount;'))
     logger.info(rbk.rman(oracle_home, "restore controlfile to '{0}/control01.ctl' from '{1}';".format(oracle_files_path, auto_backup_file)))
@@ -198,7 +190,7 @@ def cli(host_cluster_db, path, time_restore, target_host, oracle_home, new_oracl
     logger.info(rbk.sqlplus_sysdba(oracle_home, 'startup mount'))
     logfile = oracle_files_path + '/nid_' + new_oracle_name + '.log'
     logger.info("NID Logfile: {}".format(logfile))
-    session = Popen(['nid', 'target=/', 'dbname={}'.format(new_oracle_name), 'logfile={}'.format(logfile)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    session = Popen([os.path.join(oracle_home, 'bin', 'nid'), 'target=/', 'dbname={}'.format(new_oracle_name), 'logfile={}'.format(logfile)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
     stdout, stderr = session.communicate()
     nid_return = "NID standard out: {}, standard error: {}.".format(stdout.decode(), stderr.decode())
     logger.info(nid_return)
