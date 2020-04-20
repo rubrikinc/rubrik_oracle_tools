@@ -1,4 +1,3 @@
-
 import rbs_oracle_common
 import click
 import logging
