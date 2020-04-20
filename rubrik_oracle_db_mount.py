@@ -49,7 +49,6 @@ def cli(source_host_db, host_target, time_restore, no_wait, debug_level):
         logger.warning("Using {} for mount.". format(time_restore))
     else:
         logger.warning("Using most recent recovery point for mount.")
-        oracle_db_info = database.get_oracle_db_info()
         time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
     logger.warning("Starting Live Mount of {} on {}.".format(source_host_db[1], host_target))
     live_mount_info = database.live_mount(host_id, time_ms)

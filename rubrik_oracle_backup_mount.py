@@ -56,7 +56,6 @@ def cli(source_host_db, mount_path, time_restore, host_target, no_wait, debug_le
         logger.warning("Mounting backup pieces for a point in time restore to time: {}.". format(time_restore))
     else:
         logger.warning("Using most recent recovery point for mount.")
-        oracle_db_info = database.get_oracle_db_info()
         time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
     logger.warning("Starting the mount of the requested {} backup pieces on {}.".format(source_host_db[1], host_target))
     live_mount_info = database.live_mount(host_id, time_ms, files_only=True, mount_path=mount_path)
