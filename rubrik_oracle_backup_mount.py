@@ -12,7 +12,7 @@ import pytz
 @click.option('--mount_path', '-m', type=str, required=True, help='The path used to mount the backup files')
 @click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
 @click.option('--target_host', '-h', type=str, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
-@click.option('--no_wait', is_flag=False, help='Queue Live Mount and exit.')
+@click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
 def cli(source_host_db, mount_path, time_restore, target_host, no_wait, debug_level):
     """
@@ -66,7 +66,9 @@ def cli(source_host_db, mount_path, time_restore, target_host, no_wait, debug_le
     start_time = utc.localize(datetime.datetime.fromisoformat(live_mount_info['startTime'][:-1])).astimezone(cluster_timezone)
     fmt = '%Y-%m-%d %H:%M:%S %Z'
     logger.info("Live mount requested at {}.".format(start_time.strftime(fmt)))
+    logger.info("No wait flag is set to {}.".format(no_wait))
     if no_wait:
+        logger.warning("Live mount id: {} Mount status: {}.".format(live_mount_info['id'], live_mount_info['status']))
         return live_mount_info
     else:
         live_mount_info = database.async_requests_wait(live_mount_info['id'], 12)
