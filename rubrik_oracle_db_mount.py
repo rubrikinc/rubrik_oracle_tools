@@ -1,71 +1,77 @@
-import rubrik_oracle_module as rbk
+import rbs_oracle_common
 import click
+import logging
+import sys
 import datetime
 import pytz
 
 
 @click.command()
-@click.argument('host_cluster_db')
-@click.argument('target_host')
+@click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
+@click.option('--host_target', '-h', required=True, type=str, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
 @click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, iso format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
 @click.option('--no_wait', is_flag=False, help='Queue Live Mount and exit.')
-def cli(host_cluster_db, target_host, time_restore, no_wait):
+@click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
+def cli(source_host_db, host_target, time_restore, no_wait, debug_level):
     """Live mount a Rubrik Oracle Backup.
 
 \b
     Gets the backup for the Oracle database on the Oracle database host and will live mount it on the host provided.
 \b
-    Args:
-        host_cluster_db (str): The hostname the database is running on : The database name
-        target_host (str): The host to live mount the database. (Must be a compatible Oracle host on Rubrik)
-        time_restore: The point in time for the live mount iso 8601 format (2019-04-30T18:23:21)
-        no_wait (flag): Exit after queueing the live mount.
-\b
     Returns:
         live_mount_info (json); JSON text file with the Rubrik cluster response to the live mount request
     """
-    rubrik = rbk.connect_rubrik()
-    cluster_info = rbk.get_cluster_info(rubrik)
-    timezone = cluster_info['timezone']['timezone']
-    print("Connected to cluster: {}, version: {}, Timezone: {}.".format(cluster_info['name'], cluster_info['version'], timezone))
-    host_cluster_db = host_cluster_db.split(":")
-    oracle_db_id = rbk.get_oracle_db_id(rubrik, host_cluster_db[1], host_cluster_db[0])
-    oracle_db_info = rbk.get_oracle_db_info(rubrik, oracle_db_id)
+    numeric_level = getattr(logging, debug_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: {}'.format(debug_level))
+    logger = logging.getLogger()
+    logger.setLevel(logging.NOTSET)
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(numeric_level)
+    console_formatter = logging.Formatter('%(asctime)s: %(message)s')
+    ch.setFormatter(console_formatter)
+    logger.addHandler(ch)
+
+    rubrik = rbs_oracle_common.RubrikConnection()
+    source_host_db = source_host_db.split(":")
+    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
+    oracle_db_info = database.get_oracle_db_info()
+    logger.debug(oracle_db_info)
     # If source DB is RAC then the target for the live mount must be a RAC cluster
     if 'racName' in oracle_db_info.keys():
         if oracle_db_info['racName']:
-            host_id = rbk.get_rac_id(rubrik, cluster_info['id'], target_host)
+            host_id = database.get_rac_id(rubrik.cluster_id, host_target)
     else:
-        host_id = rbk.get_host_id(rubrik, cluster_info['id'], target_host)
+        host_id = database.get_host_id(rubrik.cluster_id, host_target)
     if time_restore:
-        time_ms = rbk.epoch_time(time_restore, timezone)
-        print("Using {} for mount.". format(time_restore))
+        time_ms = database.epoch_time(time_restore, rubrik.timezone)
+        logger.warning("Using {} for mount.". format(time_restore))
     else:
-        print("Using most recent recovery point for mount.")
-        oracle_db_info = rbk.get_oracle_db_info(rubrik, oracle_db_id)
-        time_ms = rbk.epoch_time(oracle_db_info['latestRecoveryPoint'], timezone)
-    print("Starting Live Mount of {} on {}.".format(host_cluster_db[1], target_host))
-    live_mount_info = rbk.live_mount(rubrik, oracle_db_id, host_id, time_ms)
+        logger.warning("Using most recent recovery point for mount.")
+        oracle_db_info = database.get_oracle_db_info()
+        time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
+    logger.warning("Starting Live Mount of {} on {}.".format(source_host_db[1], host_target))
+    live_mount_info = database.live_mount(host_id, time_ms)
     # Set the time format for the printed result
-    cluster_timezone = pytz.timezone(timezone)
+    cluster_timezone = pytz.timezone(rubrik.timezone)
     utc = pytz.utc
     start_time = utc.localize(datetime.datetime.fromisoformat(live_mount_info['startTime'][:-1])).astimezone(cluster_timezone)
     fmt = '%Y-%m-%d %H:%M:%S %Z'
-    print("Live mount status: {}, Started at {}.".format(live_mount_info['status'], start_time.strftime(fmt)))
+    logger.debug("Live mount status: {}, Started at {}.".format(live_mount_info['status'], start_time.strftime(fmt)))
     if no_wait:
         return live_mount_info
     else:
-        live_mount_info = rbk.async_requests_wait(rubrik, live_mount_info['id'], 12)
-        print("Async request completed with status: {}".format(live_mount_info['status']))
+        live_mount_info = database.async_requests_wait(live_mount_info['id'], 12)
+        logger.warning("Async request completed with status: {}".format(live_mount_info['status']))
         if live_mount_info['status'] != "SUCCEEDED":
             raise RubrikOracleDBMountError(
                 "Mount of Oracle DB did not complete successfully. Mount ended with status {}".format(
                     live_mount_info['status']))
-        print("Live mount of the backup files completed.")
+        logger.warning("Live mount of the backup files completed.")
         return live_mount_info
 
 
-class RubrikOracleDBMountError(rbk.NoTraceBackWithLineNumber):
+class RubrikOracleDBMountError(rbs_oracle_common.NoTraceBackWithLineNumber):
     """
         Renames object so error is named with calling script
     """
