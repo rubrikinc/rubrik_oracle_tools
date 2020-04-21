@@ -228,3 +228,133 @@ Usage: rubrik_oracle_log_backup [OPTIONS] HOST_CLUSTER_DB
 Options:
   --help  Show this message and exit.
 ```
+
+### rubrik_oracle_backup_mount_clone
+```
+ rubrik_oracle_backup_mount_clone --help
+Usage: rubrik_oracle_backup_mount_clone [OPTIONS]
+
+      This will mount the requested Rubrik Oracle backup set on the provided
+      path.
+
+      The source database is specified in a host:db format. The backup mount path is required. If the restore time is not
+      provided the most recent recoverable time will be used. The host for the mount clone must be specified along with
+      the directory for the temp, redo, etc. and the new database name. If the Oracle Home is not specified the ORACLE
+      HOME path from the source database will be used. This is for a single instance database only, at present it will
+      NOT work on RAC. It has not yet been tested with ASM.
+
+
+Options:
+  -s, --source_host_db TEXT   The source <host or RAC cluster>:<database>
+                              [required]
+
+  -m, --mount_path TEXT       The path used to mount the backup files
+                              [required]
+
+  -h, --host_target TEXT      Host or RAC cluster name (RAC target required if
+                              source is RAC)  for the Live Mount.  [required]
+
+  -n, --new_oracle_name TEXT  Name for the cloned live mounted database
+                              [required]
+
+  -f, --files_directory TEXT  Location for Oracle files written to the host,
+                              control files, redo, etc.  [required]
+
+  -o, --oracle_home TEXT      ORACLE_HOME path for this database clone
+  -t, --time_restore TEXT     The point in time for the database clone in  iso
+                              8601 format (2019-04-30T18:23:21)
+
+  -d, --debug_level TEXT      Logging level: DEBUG, INFO, WARNING or CRITICAL.
+  --help                      Show this message and exit.
+
+```
+
+### rubrik_oracle_db_mount_clone
+```
+ rubrik_oracle_db_mount_clone --help
+Usage: rubrik_oracle_db_mount_clone [OPTIONS]
+
+  Live mount an Oracle database from a Rubrik Oracle Backup and rename the
+  live mounted database.
+
+      Live mounts an Oracle database from the Rubrik backups. The database is then shutdown, mounted, and
+      the name changed using the Oracle NID utility. Note that live mounted databases that have had the
+      name changed will need to be cleaned up after the database is unmounted. The
+      rubrik_oracle_db_clone_unmount utility will both unmount the live mount and cleanup the database
+      files.
+
+      Returns:
+          live_mount_info (json); JSON text file with the Rubrik cluster response to the live mount request
+
+
+Options:
+  -s, --source_host_db TEXT   The source <host or RAC cluster>:<database>
+                              [required]
+
+  -h, --host_target TEXT      Host or RAC cluster name (RAC target required if
+                              source is RAC)  for the Live Mount   [required]
+
+  -n, --new_oracle_name TEXT  Name for the cloned database  [required]
+  -t, --time_restore TEXT     Point in time to mount the DB, iso format is
+                              YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
+
+  -d, --debug_level TEXT      Logging level: DEBUG, INFO, WARNING, ERROR or
+                              CRITICAL.
+
+  --help                      Show this message and exit.
+
+```
+
+### rubrik_oracle_mount_info
+```
+rubrik_oracle_mount_info --help
+Usage: rubrik_oracle_mount_info [OPTIONS]
+
+      This will unmount a Rubrik live mount using the database name and the
+      live mount host.
+
+      Returns:
+          unmount_info (dict): Status of the unmount request.
+
+
+Options:
+  -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
+                             [required]
+
+  -m, --mounted_host TEXT    The host with the live mount to remove
+                             [required]
+
+  -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING or CRITICAL.
+  --help                     Show this message and exit.
+
+```
+
+### rubrik_oracle_clone_unmount
+```
+ rubrik_oracle_clone_unmount --help
+Usage: rubrik_oracle_clone_unmount [OPTIONS]
+
+  This will unmount a Rubrik live mount that has had the name changed after
+  the live mount  using the the live mount host:Original DB Name, new Oracle
+  DB name and the ORACLE_HOME
+
+Options:
+  -s, --source_host_db TEXT   The source <host or RAC cluster>:<database>
+                              [required]
+
+  -m, --mounted_host TEXT     The host with the live mount to remove
+                              [required]
+
+  -n, --new_oracle_name TEXT  Oracle database clone name. If unmounting more
+                              than one separate with commas.  [required]
+
+  -o, --oracle_home TEXT      ORACLE_HOME path for the mounted database(s) if
+                              different than source database ORACLE_HOME
+
+  -a, --all_mounts            Unmount all mounts from the source host:db.
+                              Provide all the clone names separated by commas.
+
+  -d, --debug_level TEXT      Logging level: DEBUG, INFO, WARNING or CRITICAL.
+  --help                      Show this message and exit.
+
+```

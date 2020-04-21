@@ -1,4 +1,5 @@
 venv
+venv_clone
 .idea
 __pycache__
 *.egg-info
