@@ -42,10 +42,14 @@ def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait,  d
     live_mount_ids = mount.get_oracle_live_mount_id()
     unmount_info = []
     if not live_mount_ids:
-        raise RubrikOracleUnmountError("No live mounts found for {} live mounted on {}. ".format(source_host_db[1], mounted_host))
+        raise RubrikOracleUnmountError(
+            "No live mounts found for {} live mounted on {}. ".format(source_host_db[1], mounted_host))
+    elif len(live_mount_ids) == 0:
+        raise RubrikOracleUnmountError(
+            "No live mounts found for {} live mounted on {}. ".format(source_host_db[1], mounted_host))
     elif len(live_mount_ids) == 1:
         logger.warning("Found live mount id: {} on {}".format(live_mount_ids[0], mounted_host))
-        logger.warning("Deleting 1 live mount.")
+        logger.warning("Deleting live mount.")
         delete_request = mount.live_mount_delete(live_mount_ids[0], force)
         if no_wait:
             logger.warning("Live mount id: {} Unmount status: {}.".format(live_mount_ids[0], delete_request['status']))
