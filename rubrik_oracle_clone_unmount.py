@@ -1,89 +1,96 @@
+import rbs_oracle_common
 import click
-import rubrik_oracle_module as rbk
 import logging
 import sys
+import platform
 import pytz
 import datetime
 
 
 @click.command()
-@click.argument('host_cluster_db')
+@click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
+@click.option('--mounted_host', '-m', type=str, required=True,  help='The host with the live mount to remove')
 @click.option('--new_oracle_name', '-n', required=True, type=str, help='Oracle database clone name. If unmounting more than one separate with commas.')
-@click.option('--oracle_home', '-o', required=True, type=str, help='ORACLE_HOME path for the mounted database(s)')
-@click.option('--all', '-a', is_flag=True, help='Unmount all mounts from the source host:db. Provide all the clone names separated by commas.')
+@click.option('--oracle_home', '-o', type=str, help='ORACLE_HOME path for the mounted database(s) if different than source database ORACLE_HOME')
+@click.option('--all_mounts', '-a', is_flag=True, help='Unmount all mounts from the source host:db. Provide all the clone names separated by commas.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
-def cli(host_cluster_db, new_oracle_name, oracle_home, all, debug_level):
+def cli(source_host_db, mounted_host, new_oracle_name, oracle_home, all_mounts, debug_level):
     """
     This will unmount a Rubrik live mount that has had the name changed after the live mount
      using the the live mount host:Original DB Name, new Oracle DB name and the ORACLE_HOME
-
-\b
-    Args:
-        host_cluster_db (str): The hostname the database is running on : The source database name
-
     """
     numeric_level = getattr(logging, debug_level.upper(), None)
     if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: {}}'.format(debug_level))
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(stream=sys.stdout, level=numeric_level, format='%(asctime)s: %(message)s',
-                        datefmt='%H:%M:%S')
-    rubrik = rbk.connect_rubrik()
-    cluster_info = rbk.get_cluster_info(rubrik)
-    timezone = cluster_info['timezone']['timezone']
-    logger.warning("Connected to cluster: {}, version: {}, Timezone: {}.".format(cluster_info['name'], cluster_info['version'], timezone))
-    host_cluster_db = host_cluster_db.split(":")
-    live_mount_ids = rbk.get_oracle_live_mount_id(rubrik, cluster_info['id'], host_cluster_db[1], host_cluster_db[0])
+        raise ValueError('Invalid log level: {}'.format(debug_level))
+    logger = logging.getLogger()
+    logger.setLevel(logging.NOTSET)
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(numeric_level)
+    console_formatter = logging.Formatter('%(asctime)s: %(message)s')
+    ch.setFormatter(console_formatter)
+    logger.addHandler(ch)
+
+    # Make sure this is being run on the target host
+    if mounted_host.split('.')[0] != platform.uname()[1].split('.')[0]:
+        raise RubrikOracleCloneUnmountError("This program must be run on the mounted host: {}".format(mounted_host))
+    rubrik = rbs_oracle_common.RubrikConnection()
+    source_host_db = source_host_db.split(":")
+    logger.info("Checking for live mounts of source db {} on host {}".format(source_host_db[1], mounted_host))
+    mount = rbs_oracle_common.RubrikRbsOracleMount(rubrik, source_host_db[1], source_host_db[0], mounted_host)
+    live_mount_ids = mount.get_oracle_live_mount_id()
+    if not oracle_home:
+        source_db_info = mount.get_oracle_db_info()
+        oracle_home = source_db_info['oracleHome']
     new_oracle_name = new_oracle_name.split(',')
-    if host_cluster_db[1] in new_oracle_name:
+    if source_host_db[1] in new_oracle_name:
         raise RubrikOracleCloneUnmountError("Requesting drop of source database. This is not allowed in case that database is running on this host. Please only use the clone database names for the databases to be removed.")
     force = True
-    cluster_timezone = pytz.timezone(timezone)
+    cluster_timezone = pytz.timezone(rubrik.timezone)
     utc = pytz.utc
     fmt = '%Y-%m-%d %H:%M:%S %Z'
     if not live_mount_ids:
-        raise RubrikOracleCloneUnmountError("No live mounts found for {} live mounted on {}. ".format(host_cluster_db[1], host_cluster_db[0]))
-    else:
-        if len(live_mount_ids) == 0:
-            raise RubrikOracleCloneUnmountError(
-                "No live mounts found for {} live mounted on {}. ".format(host_cluster_db[1], host_cluster_db[0]))
-        elif len(live_mount_ids) > 1:
-            if all:
-                for live_mount_id in live_mount_ids:
-                    unmount_info = rbk.live_mount_delete(rubrik, live_mount_id, force)
-                    start_time = utc.localize(datetime.datetime.fromisoformat(unmount_info['startTime'][:-1])).astimezone(cluster_timezone)
-                    logger.info("Live mount unmount requested at {}.".format(start_time.strftime(fmt)))
-                    unmount_info = rbk.async_requests_wait(rubrik, unmount_info['id'], 20)
-                    logger.info("Async request completed with status: {}".format(unmount_info['status']))
-                    if unmount_info['status'] != "SUCCEEDED":
-                        logger.warning("Unmount of backup files failed with status: {}".format(unmount_info['status']))
-                    else:
-                        logger.warning("Live mount of backup data files with id: {} has been unmounted.".format(live_mount_id))
-                for name in new_oracle_name:
-                    rbk.oracle_db_clone_cleanup(name, oracle_home)
-                    logger.warning("Clone database {} has been dropped.".format(name))
-                return
-            else:
-                raise RubrikOracleCloneUnmountError(
-                    "More than one backup of {} is live mounted on {}. Use the --all flag to unmount them all.".format(host_cluster_db[1], host_cluster_db[0]))
+        raise RubrikOracleCloneUnmountError("No live mounts found for {} live mounted on {}. ".format(source_host_db[1], source_host_db[0]))
+    elif len(live_mount_ids) == 0:
+        raise RubrikOracleCloneUnmountError(
+            "No live mounts found for {} live mounted on {}. ".format(source_host_db[1], source_host_db[0]))
+    elif len(live_mount_ids) == 1:
+        logger.warning("Found live mount id: {} on {}".format(live_mount_ids[0], mounted_host))
+        logger.warning("Deleting live mount.")
+        delete_request = mount.live_mount_delete(live_mount_ids[0], force)
+        delete_request = mount.async_requests_wait(delete_request['id'], 12)
+        logger.warning("Async request completed with status: {}".format(delete_request['status']))
+        logger.debug(delete_request)
+        if delete_request['status'] != "SUCCEEDED":
+            logger.warning("Unmount of backup files failed with status: {}".format(delete_request['status']))
         else:
-            unmount_info = rbk.live_mount_delete(rubrik, live_mount_ids[0], force)
-            start_time = utc.localize(datetime.datetime.fromisoformat(unmount_info['startTime'][:-1])).astimezone(
-                cluster_timezone)
-            logger.info("Live mount unmount requested at {}.".format(start_time.strftime(fmt)))
-            logger.warning("Unmounting backup files...")
-            unmount_info = rbk.async_requests_wait(rubrik, unmount_info['id'], 20)
-            logger.info("Async request completed with status: {}".format(unmount_info['status']))
-            if unmount_info['status'] != "SUCCEEDED":
-                raise RubrikOracleCloneUnmountError("Unmount of the {} database live mounted on {} did not succeed. Request completed with status {}.".format(host_cluster_db[1], host_cluster_db[0], unmount_info['status']))
+            logger.warning("Live mount of backup data files with id: {} has been unmounted.".format(live_mount_ids[0]))
+        mount.oracle_db_clone_cleanup(new_oracle_name[0], oracle_home)
+        logger.warning("Clone database {} has been dropped.".format(new_oracle_name[0]))
+        return
+    elif len(live_mount_ids) > 1 and all_mounts:
+        logger.warning("Delete all mounts is set to {}. Deleting all mounts on {}".format(all_mounts, mounted_host))
+        for live_mount_id in live_mount_ids:
+            logger.debug(live_mount_id)
+            logger.warning("Deleting live mount with id: {} on {}".format(live_mount_ids[0], mounted_host))
+            delete_request = mount.live_mount_delete(live_mount_id, force)
+            delete_request = mount.async_requests_wait(delete_request['id'], 12)
+            logger.warning("Async request completed with status: {}".format(delete_request['status']))
+            logger.debug(delete_request)
+            if delete_request['status'] != "SUCCEEDED":
+                logger.warning("Unmount of backup files failed with status: {}".format(delete_request['status']))
             else:
-                logger.warning("Backup files have been unmounted.")
-            rbk.oracle_db_clone_cleanup(new_oracle_name[0], oracle_home)
-            logger.warning("Clone database {} has been dropped.".format(new_oracle_name[0]))
-            return
+                logger.warning("Live mount of backup data files with id: {} has been unmounted.".format(live_mount_id))
+        for name in new_oracle_name:
+            mount.oracle_db_clone_cleanup(name, oracle_home)
+            logger.warning("Clone database {} has been dropped.".format(name))
+        return
+    else:
+        raise RubrikOracleCloneUnmountError( "Multiple live mounts found for source database {} live mounted on {}. "
+                                            "Use --all_mounts to unmount all or some of the mounts "
+                                            .format(source_host_db[1], mounted_host))
 
 
-class RubrikOracleCloneUnmountError(rbk.NoTraceBackWithLineNumber):
+class RubrikOracleCloneUnmountError(rbs_oracle_common.NoTraceBackWithLineNumber):
     """
         Renames object so error is named with calling script
     """
