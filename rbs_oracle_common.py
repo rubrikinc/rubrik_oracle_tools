@@ -228,7 +228,7 @@ class RubrikRbsOracleDatabase:
             "targetMountPath": mount_path,
             "shouldMountFilesOnly": files_only
         }
-        live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload)
+        live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=60)
         return live_mount_info
 
     def get_host_id(self, primary_cluster_id, hostname):
