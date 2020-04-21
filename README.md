@@ -53,6 +53,11 @@ pip install --upgrade pip
 
 ## Install the Rubrik Oracle scripts
 ------------------------------------------------
+Download the Rubrik Oracle Tools Repository 
+```
+git clone https://github.com/pcrouleur/rubrik_oracle_tools.git
+```
+
 cd to the Rubrik Oracle Tools directory
 ```
 cd /home/oracle/rubrik_oracle_tools/
