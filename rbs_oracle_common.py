@@ -96,6 +96,7 @@ class RubrikRbsOracleDatabase:
         # we will compare the hostname without the domain.
         if self.is_ip(self.database_host):
             raise RbsOracleCommonError("A hostname is required for the Oracle host, do not use an IP address.")
+        oracle_id = ''
         if oracle_dbs['total'] == 0:
             raise RbsOracleCommonError(
                 "The {} object '{}' was not found on the Rubrik cluster.".format(self.database_name, self.database_host))
@@ -112,8 +113,12 @@ class RubrikRbsOracleDatabase:
                     if any(instance['hostName'] == self.database_host for instance in db['instances']):
                         oracle_id = db['id']
                         break
-        self.logger.debug("Found Database id: {} for Database: {} on host or cluster {}".format(oracle_id, self.database_name, self.database_host))
-        return oracle_id
+        if oracle_id:
+            self.logger.debug("Found Database id: {} for Database: {} on host or cluster {}".format(oracle_id, self.database_name, self.database_host))
+            return oracle_id
+        else:
+            raise RbsOracleCommonError("No ID found for a database with name {} running on host {}.".format(self.database_name, self.database_host))
+  
 
     def get_oracle_db_info(self):
         """
