@@ -119,7 +119,6 @@ class RubrikRbsOracleDatabase:
         else:
             raise RbsOracleCommonError("No ID found for a database with name {} running on host {}.".format(self.database_name, self.database_host))
   
-
     def get_oracle_db_info(self):
         """
         Gets the information about a Rubrik Oracle database object using the Rubrik Oracle database id.
