@@ -229,7 +229,7 @@ Options:
   --help  Show this message and exit.
 ```
 
-### rubrik_oracle_backup_mount_clone
+#### rubrik_oracle_backup_mount_clone
 ```
  rubrik_oracle_backup_mount_clone --help
 Usage: rubrik_oracle_backup_mount_clone [OPTIONS]
@@ -269,7 +269,7 @@ Options:
 
 ```
 
-### rubrik_oracle_db_mount_clone
+#### rubrik_oracle_db_mount_clone
 ```
  rubrik_oracle_db_mount_clone --help
 Usage: rubrik_oracle_db_mount_clone [OPTIONS]
@@ -305,7 +305,7 @@ Options:
 
 ```
 
-### rubrik_oracle_mount_info
+#### rubrik_oracle_mount_info
 ```
 rubrik_oracle_mount_info --help
 Usage: rubrik_oracle_mount_info [OPTIONS]
@@ -329,7 +329,7 @@ Options:
 
 ```
 
-### rubrik_oracle_clone_unmount
+#### rubrik_oracle_clone_unmount
 ```
  rubrik_oracle_clone_unmount --help
 Usage: rubrik_oracle_clone_unmount [OPTIONS]
