@@ -44,6 +44,8 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     # Make sure this is being run on the target host
     if host_target.split('.')[0] != platform.uname()[1].split('.')[0]:
         raise RubrikOracleBackupMountCloneError("This program must be run on the target host: {}".format(host_target))
+    if len(new_oracle_name) > 8:
+        raise RubrikOracleBackupMountCloneError("The new oracle name: {} is too long. Oracle names must be 8 characters or less.".format(new_oracle_name))
     rubrik = rbs_oracle_common.RubrikConnection()
     source_host_db = source_host_db.split(":")
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
