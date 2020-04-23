@@ -92,101 +92,121 @@ chmod 600 config.json
 #### rubrik_oracle_backup_info
 ```
 rubrik_oracle_backup_info --help
-Usage: rubrik_oracle_backup_info [OPTIONS] HOST_CLUSTER_DB
+Usage: rubrik_oracle_backup_info [OPTIONS]
 
   Displays information about the Oracle database object, the available
   snapshots, and recovery ranges.
 
-  Args:     
-  host_cluster_db (str): The hostname the database is running on : The database name
-  Returns:     
-  None: Information is printed to standard out
-
 Options:
-  --help  Show this message and exit.
+  -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
+                             [required]
+
+  -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING or CRITICAL.
+  --help                     Show this message and exit.
+
 ```
 
 #### rubrik_oracle_backup_mount
 ```
 rubrik_oracle_backup_mount --help
-Usage: rubrik_oracle_backup_mount [OPTIONS] HOST_CLUSTER_DB PATH
+Usage: rubrik_oracle_backup_mount [OPTIONS]
 
-  This will mount the requested Rubrik Oracle backup set on the provided
-  path.
+      This will mount the requested Rubrik Oracle backup set on the provided
+      path.
 
-  The source database is specified in a host:db format. The mount path is
-  required. If the restore time is not provided the most recent recoverable
-  time will be used. The host for the mount can be specified if it is not it
-  will be mounted on the source host. If the source database is on a RAC
-  cluster the target must be a RAC cluster. 
-  
-  Args:     
-  host_cluster_db (str): The hostname the database is running on : The database name.     
-  path (str): The path for the mount. This must exist on the requested host.
-  time_restore (str): The point in time for the backup set in  iso 8601 format (2019-04-30T18:23:21).    
-  target_host (str): The host to mount the backup set. If not specified the source host will be used. IF source DB in on RAC this must be a RAC Cluster.
+      The source database is specified in a host:db format. The mount path is required. If the restore time is not
+      provided the most recent recoverable time will be used. The host for the mount can be specified if it is not it
+      will be mounted on the source host. If the source database is on a RAC cluster the target must be a RAC cluster.
 
-  Returns:     
-  live_mount_info (dict): The information about the requested files only mount returned from the Rubrik CDM.
+      Returns:
+          live_mount_info (dict): The information about the requested files only mount returned from the Rubrik CDM.
+
 
 Options:
-  -t, --time_restore TEXT  Point in time to mount the DB, format is
-                           YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
-  -h, --target_host TEXT   Host or RAC cluster name (RAC target required if
-                           source is RAC)  for the Live Mount
-  --help                   Show this message and exit.
+  -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
+                             [required]
 
+  -m, --mount_path TEXT      The path used to mount the backup files
+                             [required]
+
+  -t, --time_restore TEXT    Point in time to mount the DB, format is
+                             YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
+
+  -h, --host_target TEXT     Host or RAC cluster name (RAC target required if
+                             source is RAC)  for the Live Mount
+
+  --no_wait                  Queue Live Mount and exit.
+  -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
+                             CRITICAL.
+
+  --help                     Show this message and exit.
 ```
 
 #### rubrik_oracle_db_mount
 ```
-rubrik_oracle_db_mount --help
-Usage: rubrik_oracle_db_mount [OPTIONS] HOST_CLUSTER_DB TARGET_HOST
+ rubrik_oracle_db_mount --help
+Usage: rubrik_oracle_db_mount [OPTIONS]
 
   Live mount a Rubrik Oracle Backup.
 
-  Gets the backup for the Oracle database on the Oracle database host and
-  will live mount it on the host provided.
+      Gets the backup for the Oracle database on the Oracle database host and will live mount it on the host provided.
 
-  Args:     
-  host_cluster_db (str): The hostname the database is running on : The database name    
-  target_host (str): The host to live mount the database. (Must be a compatible Oracle host on Rubrik)     
-  time_restore: The point in time for the live mount iso 8601 format (2019-04-30T18:23:21)
+      Returns:
+          live_mount_info (json); JSON text file with the Rubrik cluster response to the live mount request
 
-  Returns:     
-  live_mount_info (json); JSON text file with the Rubrik cluster response to the live mount request
 
 Options:
-  -t, --time_restore TEXT  Point in time to mount the DB, iso format is
-                           YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
-  --help                   Show this message and exit.
+  -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
+                             [required]
 
+  -h, --host_target TEXT     Host or RAC cluster name (RAC target required if
+                             source is RAC)  for the Live Mount   [required]
+
+  -t, --time_restore TEXT    Point in time to mount the DB, iso format is
+                             YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
+
+  --no_wait TEXT             Queue Live Mount and exit.
+  -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
+                             CRITICAL.
+
+  --help                     Show this message and exit.
 ```
 
 #### rubrik_oracle_unmount
 ```
 rubrik_oracle_unmount --help
-Usage: rubrik_oracle_unmount [OPTIONS] HOST_CLUSTER_DB
+Usage: rubrik_oracle_unmount [OPTIONS]
 
-  This will unmount a Rubrik live mount using the database name and the live
-  mount host.
+      This will unmount a Rubrik live mount using the database name and the
+      live mount host.
 
-  Args:     
-  host_cluster_db (str): The hostname the database is running on : The database name     
-  force (bool): Force the unmount
+      Returns:
+          unmount_info (dict): Status of the unmount request.
 
-  Returns:     
-  unmount_info (dict): Status of the unmount request.
 
 Options:
-  -f, --force  Force unmount
-  --help       Show this message and exit.
+  -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
+                             [required]
+
+  -m, --mounted_host TEXT    The host with the live mount to remove
+                             [required]
+
+  -f, --force                Force unmount
+  -a, --all_mounts           Unmount all mounts from the source host:db.
+                             Provide all the clone names separated by commas.
+
+  -i, --id_unmount TEXT      Unmount a specific mount using the mount id.
+                             Multiple ids seperated by commas.
+
+  --no_wait                  Queue Live Mount and exit.
+  -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING or CRITICAL.
+  --help                     Show this message and exit.
 ```
 
 #### rubrik_oracle_snapshot
 ```
 rubrik_oracle_snapshot --help
-Usage: rubrik_oracle_snapshot [OPTIONS] HOST_CLUSTER_DB
+Usage: rubrik_oracle_snapshot [OPTIONS]
 
       This will initiate an on demand snapshot (backup) of the database.
 
@@ -194,39 +214,45 @@ Usage: rubrik_oracle_snapshot [OPTIONS] HOST_CLUSTER_DB
       image backup of the database set force to True. If you would like to use a different SLA for this snapshot you
       can specify that here also. Note if no SLA is supplied the current sla for this database will be used.
 
-      Args:
-          host_cluster_db (str): The hostname the database is running on : The database name.
-          force (bool): Force a new full database image level 0 backup
-          sla (str): The Rubrik SLA Domain to use if different than the assigned SLA
-
       Returns:
           snapshot_info (dict): The information about the snapshot returned from the Rubrik CDM.
 
 
 Options:
-  -f, --force     Force a new full database image level 0 backup
-  -s, --sla TEXT  Rubrik SLA Domain to use if different than the assigned SLA
-  --help          Show this message and exit.
+  -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
+                             [required]
+
+  -f, --force                Force a new full database image level 0 backup
+  --sla TEXT                 Rubrik SLA Domain to use if different than the
+                             assigned SLA
+
+  --wait                     Wait for backup to complete.
+  -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
+                             CRITICAL.
+
+  --help                     Show this message and exit.
 ```
 
 #### rubrik_oracle_log_backup
 ```
 rubrik_oracle_log_backup --help
-Usage: rubrik_oracle_log_backup [OPTIONS] HOST_CLUSTER_DB
+Usage: rubrik_oracle_log_backup [OPTIONS]
 
       This will initiate an on demand archive log backup of the database.
-
-      The source database is specified in a host:db format.
-
-      Args:
-          host_cluster_db (str): The hostname the database is running on : The database name.
 
       Returns:
           log_backup_info (dict): The information about the snapshot returned from the Rubrik CDM.
 
 
 Options:
-  --help  Show this message and exit.
+  -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
+                             [required]
+
+  --wait                     Wait for backup to complete.
+  -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
+                             CRITICAL.
+
+  --help                     Show this message and exit.
 ```
 
 #### rubrik_oracle_backup_mount_clone
