@@ -41,6 +41,18 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
+    # Create the directory for the Oracle files (redo, temp, etc)
+    oracle_files_path = os.path.join(files_directory, new_oracle_name)
+    logger.debug("Creating Oracle files directory {} if not present.".format(oracle_files_path))
+    os.makedirs(oracle_files_path, exist_ok=True)
+
+    logfile = os.path.join(oracle_files_path, "{}_Clone.log".format(new_oracle_name))
+    fh = logging.FileHandler(logfile, mode='w')
+    fh.setLevel(logging.DEBUG)
+    file_formatter = logging.Formatter('%(asctime)s:%(name)s:%(levelname)s: %(message)s')
+    fh.setFormatter(file_formatter)
+    logger.addHandler(fh)
+
     # Make sure this is being run on the target host
     if host_target.split('.')[0] != platform.uname()[1].split('.')[0]:
         raise RubrikOracleBackupMountCloneError("This program must be run on the target host: {}".format(host_target))
@@ -86,10 +98,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
         raise RubrikOracleBackupMountCloneError("Multiple directories were created in {} during this operation. Live mount directory cannot be determined".format(mount_path))
     logger.info("Using the live mount path: {}".format(backup_path))
     auto_backup_file = database.get_latest_autobackup(backup_path)
-    # Create the directory for the Oracle files (redo, temp, etc)
-    oracle_files_path = os.path.join(files_directory, new_oracle_name)
-    logger.debug("Creating Oracle files directory {} if not present.".format(oracle_files_path))
-    os.makedirs(oracle_files_path, exist_ok=True)
+
     # Create the audit directory
     audit_dir = os.path.join(oracle_files_path, 'adump')
     logger.debug("Creating audit dump directory {} if not present.".format(oracle_files_path))
@@ -107,68 +116,85 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     os.environ["ORACLE_HOME"] = oracle_home
     os.environ["ORACLE_SID"] = new_oracle_name
     logger.warning("Restoring and configuring server parameter file.")
-    logger.info(database.sqlplus_sysdba(oracle_home, "startup force nomount pfile='{}'".format(init_file)))
+    sql_return = database.sqlplus_sysdba(oracle_home, "startup nomount pfile='{}'".format(init_file))
+    logger.info(sql_return)
+    if "ORA-01081: cannot start already-running ORACLE" in sql_return:
+        raise RubrikOracleBackupMountCloneError("There is an instance of {} all ready running on this host. Aborting clone".format(new_oracle_name))
+    sql_return = database.sqlplus_sysdba(oracle_home, "select instance_name from v$instance;")
+    logger.info(sql_return)
+    if new_oracle_name not in sql_return:
+        raise RubrikOracleBackupMountCloneError("DB Instance check failed. Instance name is not {}. Aborting clone".format(new_oracle_name))
     logger.info(database.rman(oracle_home, "restore spfile from '{}';".format(auto_backup_file)))
     logger.info("Setting parameters in spfile before starting instance.")
     spfile = os.path.join(oracle_home, 'dbs', 'spfile{}.ora'.format(new_oracle_name))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set spfile='{}';".format(spfile)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set audit_file_dest='{}' scope=spfile;".format(audit_dir)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_unique_name='{}' scope=spfile;".format(new_oracle_name)))
+    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set control_files = '{}/control01.ctl' scope=spfile;".format(oracle_files_path)))
+    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_recovery_file_dest = '{}' scope=spfile;".format(fast_recovery_area)))
+    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set diagnostic_dest = '{}' scope=spfile;".format(oracle_files_path)))
+    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_recovery_file_dest_size = '1G' scope=spfile;"))
     logger.info(database.sqlplus_sysdba(oracle_home, 'startup force nomount;'))
     logger.info(database.rman(oracle_home, "restore controlfile to '{0}/control01.ctl' from '{1}';".format(oracle_files_path, auto_backup_file)))
-    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set control_files = '{}/control01.ctl' scope=spfile;".format(oracle_files_path)))
-    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set audit_file_dest = '{}' scope=spfile;".format(audit_dir)))
-    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_recovery_file_dest = '{}' scope=spfile;".format(fast_recovery_area)))
-    logger.info(database.sqlplus_sysdba(oracle_home, 'startup force mount;'))
+    logger.info(database.sqlplus_sysdba(oracle_home, 'alter database mount;'))
+
+    logger.warning("Setting redo log location.")
+    move_redo_sql = """
+        SET SERVEROUTPUT ON
+        DECLARE
+            l_oracle_files_path VARCHAR2(50):= '{}';
+            l_new_member VARCHAR2(60);
+            l_sql_stmt VARCHAR2(200);
+            CURSOR c_redo_files IS
+            select member,
+            substr(member,(instr(member,'/',-1,1) +1),length(member)) new_member
+            from v$logfile;
+            c_redo_files_var c_redo_files%ROWTYPE;
+        BEGIN
+            FOR c_redo_files_var in c_redo_files LOOP
+               l_new_member := (l_oracle_files_path || '/' || c_redo_files_var.new_member);
+               l_sql_stmt := 'alter database rename file ''' || c_redo_files_var.member || ''' to ''' || l_new_member || ''';' ;
+               DBMS_OUTPUT.PUT_LINE(l_sql_stmt);
+               EXECUTE IMMEDIATE 'alter database rename file ''' || c_redo_files_var.member || ''' to ''' || l_new_member || '''';
+           END LOOP;
+        END;
+        / """.format(oracle_files_path)
+    sql_return = database.sqlplus_sysdba(oracle_home, move_redo_sql)
+    logger.info(sql_return)
+    if "PL/SQL procedure successfully completed" not in sql_return:
+        raise RubrikOracleBackupMountCloneError("Renaming redo logs failed. Aborting clone")
+    logger.warning("Setting temporary tablespace location.")
+    move_temp_sql = """
+        SET SERVEROUTPUT ON
+        DECLARE
+            l_oracle_files_path VARCHAR2(50):= '{}';
+            l_new_file VARCHAR2(60);
+            l_sql_stmt VARCHAR2(200);
+            CURSOR c_temp_files IS
+            select name,
+            substr(name,(instr(name,'/',-1,1) +1),length(name)) new_name
+            from v$tempfile;
+            c_temp_files_var c_temp_files%ROWTYPE;
+        BEGIN
+            FOR c_temp_files_var in c_temp_files LOOP
+               l_new_file := (l_oracle_files_path || '/' || c_temp_files_var.new_name);
+               l_sql_stmt := 'alter database rename file ''' || c_temp_files_var.name || ''' to ''' || l_new_file || ''';' ;
+               DBMS_OUTPUT.PUT_LINE(l_sql_stmt);
+               EXECUTE IMMEDIATE 'alter database rename file ''' || c_temp_files_var.name  || ''' to ''' || l_new_file || '''';
+           END LOOP;
+        END;
+        / """.format(oracle_files_path)
+    sql_return = database.sqlplus_sysdba(oracle_home, move_temp_sql)
+    logger.info(sql_return)
+    if "PL/SQL procedure successfully completed" not in sql_return:
+        raise RubrikOracleBackupMountCloneError("Renaming tempfiles failed. Aborting clone")
+
     logger.warning("Cataloging the backup files.")
     logger.info(database.rman(oracle_home, 'crosscheck copy; crosscheck backup; delete noprompt expired copy; delete noprompt expired backup;'))
     logger.info(database.rman(oracle_home, "catalog start with '{}' noprompt;".format(backup_path)))
     logger.warning("Switching to the Rubrik mounted data files.")
     logger.info(database.rman(oracle_home, 'switch database to copy;'))
-    logger.warning("Setting redo log location.")
-    move_redo_sql = """
-    SET SERVEROUTPUT ON
-    DECLARE
-        l_oracle_files_path VARCHAR2(50):= '{}';
-        l_new_member VARCHAR2(60);
-        l_sql_stmt VARCHAR2(200);
-        CURSOR c_redo_files IS
-        select member,
-        substr(member,(instr(member,'/',-1,1) +1),length(member)) new_member
-        from v$logfile;
-        c_redo_files_var c_redo_files%ROWTYPE;
-    BEGIN
-        FOR c_redo_files_var in c_redo_files LOOP
-           l_new_member := (l_oracle_files_path || '/' || c_redo_files_var.new_member);
-           l_sql_stmt := 'alter database rename file ''' || c_redo_files_var.member || ''' to ''' || l_new_member || ''';' ;
-           DBMS_OUTPUT.PUT_LINE(l_sql_stmt);
-           EXECUTE IMMEDIATE 'alter database rename file ''' || c_redo_files_var.member || ''' to ''' || l_new_member || '''';
-       END LOOP;
-    END;
-    / """.format(oracle_files_path)
-    logger.info(database.sqlplus_sysdba(oracle_home, move_redo_sql))
-    logger.warning("Setting temporary tablespace location.")
-    move_temp_sql = """
-    SET SERVEROUTPUT ON
-    DECLARE
-        l_oracle_files_path VARCHAR2(50):= '{}';
-        l_new_file VARCHAR2(60);
-        l_sql_stmt VARCHAR2(200);
-        CURSOR c_temp_files IS
-        select name,
-        substr(name,(instr(name,'/',-1,1) +1),length(name)) new_name
-        from v$tempfile;
-        c_temp_files_var c_temp_files%ROWTYPE;
-    BEGIN
-        FOR c_temp_files_var in c_temp_files LOOP
-           l_new_file := (l_oracle_files_path || '/' || c_temp_files_var.new_name);
-           l_sql_stmt := 'alter database rename file ''' || c_temp_files_var.name || ''' to ''' || l_new_file || ''';' ;
-           DBMS_OUTPUT.PUT_LINE(l_sql_stmt);
-           EXECUTE IMMEDIATE 'alter database rename file ''' || c_temp_files_var.name  || ''' to ''' || l_new_file || '''';
-       END LOOP;
-    END;
-    / """.format(oracle_files_path)
-    logger.info(database.sqlplus_sysdba(oracle_home, move_temp_sql))
+
     logger.warning("Recovering the Database.")
     # Fix the time format for Oracle if set and recover the database
     if time_restore:
@@ -182,12 +208,16 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     logger.info(database.sqlplus_sysdba(oracle_home, 'alter database open resetlogs;'))
     logger.info(database.sqlplus_sysdba(oracle_home, 'shutdown immediate;'))
     logger.info(database.sqlplus_sysdba(oracle_home, 'startup mount'))
-    logfile = oracle_files_path + '/nid_' + new_oracle_name + '.log'
-    logger.info("NID Logfile: {}".format(logfile))
-    session = Popen([os.path.join(oracle_home, 'bin', 'nid'), 'target=/', 'dbname={}'.format(new_oracle_name), 'logfile={}'.format(logfile)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    nid_log_file = oracle_files_path + '/nid_' + new_oracle_name + '.log'
+    logger.info("Temp NID Logfile: {}".format(nid_log_file))
+
+    session = Popen([os.path.join(oracle_home, 'bin', 'nid'), 'target=/', 'dbname={}'.format(new_oracle_name), 'logfile={}'.format(nid_log_file), 'append=YES'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
     stdout, stderr = session.communicate()
-    nid_return = "NID standard out: {}, standard error: {}.".format(stdout.decode(), stderr.decode())
-    logger.info(nid_return)
+    logger.info("NID standard out: {}, standard error: {}.".format(stdout.decode(), stderr.decode()))
+    file = open(nid_log_file, 'r')
+    logger.info("NID output")
+    logger.info(file.read())
+    os.remove(nid_log_file)
     logger.info(database.sqlplus_sysdba(oracle_home, 'startup force nomount;'))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_name='{}' scope=spfile;".format(new_oracle_name)))
     logger.info(database.sqlplus_sysdba(oracle_home, 'shutdown immediate;'))
