@@ -210,13 +210,13 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     logger.info(database.sqlplus_sysdba(oracle_home, 'startup mount'))
     nid_log_file = oracle_files_path + '/nid_' + new_oracle_name + '.log'
     logger.info("Temp NID Logfile: {}".format(nid_log_file))
-
     session = Popen([os.path.join(oracle_home, 'bin', 'nid'), 'target=/', 'dbname={}'.format(new_oracle_name), 'logfile={}'.format(nid_log_file), 'append=YES'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
     stdout, stderr = session.communicate()
     logger.info("NID standard out: {}, standard error: {}.".format(stdout.decode(), stderr.decode()))
-    file = open(nid_log_file, 'r')
-    logger.info("NID output")
-    logger.info(file.read())
+    logger.info("NID output:")
+    logger.info(open(nid_log_file).read())
+    if "Succesfully changed database name and ID" not in open(nid_log_file).read():
+        raise RubrikOracleBackupMountCloneError("Renaming the database with the NID utility failed. Aborting clone")
     os.remove(nid_log_file)
     logger.info(database.sqlplus_sysdba(oracle_home, 'startup force nomount;'))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_name='{}' scope=spfile;".format(new_oracle_name)))
