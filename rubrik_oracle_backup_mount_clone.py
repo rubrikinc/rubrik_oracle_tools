@@ -45,7 +45,8 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     oracle_files_path = os.path.join(files_directory, new_oracle_name)
     logger.debug("Creating Oracle files directory {} if not present.".format(oracle_files_path))
     os.makedirs(oracle_files_path, exist_ok=True)
-
+    oradata_files_path = os.path.join(oracle_files_path, "oradata")
+    os.makedirs(oradata_files_path, exist_ok=True)
     logfile = os.path.join(oracle_files_path, "{}_Clone.log".format(new_oracle_name))
     fh = logging.FileHandler(logfile, mode='w')
     fh.setLevel(logging.DEBUG)
@@ -130,12 +131,12 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set spfile='{}';".format(spfile)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set audit_file_dest='{}' scope=spfile;".format(audit_dir)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_unique_name='{}' scope=spfile;".format(new_oracle_name)))
-    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set control_files = '{}/control01.ctl' scope=spfile;".format(oracle_files_path)))
+    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set control_files = '{}/control01.ctl' scope=spfile;".format(oradata_files_path)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_recovery_file_dest = '{}' scope=spfile;".format(fast_recovery_area)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set diagnostic_dest = '{}' scope=spfile;".format(oracle_files_path)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_recovery_file_dest_size = '1G' scope=spfile;"))
     logger.info(database.sqlplus_sysdba(oracle_home, 'startup force nomount;'))
-    logger.info(database.rman(oracle_home, "restore controlfile to '{0}/control01.ctl' from '{1}';".format(oracle_files_path, auto_backup_file)))
+    logger.info(database.rman(oracle_home, "restore controlfile to '{0}/control01.ctl' from '{1}';".format(oradata_files_path, auto_backup_file)))
     logger.info(database.sqlplus_sysdba(oracle_home, 'alter database mount;'))
 
     logger.warning("Setting redo log location.")
@@ -158,7 +159,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
                EXECUTE IMMEDIATE 'alter database rename file ''' || c_redo_files_var.member || ''' to ''' || l_new_member || '''';
            END LOOP;
         END;
-        / """.format(oracle_files_path)
+        / """.format(oradata_files_path)
     sql_return = database.sqlplus_sysdba(oracle_home, move_redo_sql)
     logger.info(sql_return)
     if "PL/SQL procedure successfully completed" not in sql_return:
@@ -183,7 +184,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
                EXECUTE IMMEDIATE 'alter database rename file ''' || c_temp_files_var.name  || ''' to ''' || l_new_file || '''';
            END LOOP;
         END;
-        / """.format(oracle_files_path)
+        / """.format(oradata_files_path)
     sql_return = database.sqlplus_sysdba(oracle_home, move_temp_sql)
     logger.info(sql_return)
     if "PL/SQL procedure successfully completed" not in sql_return:
