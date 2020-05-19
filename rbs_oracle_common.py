@@ -103,11 +103,11 @@ class RubrikRbsOracleDatabase:
         elif oracle_dbs['total'] > 0:
             for db in oracle_dbs['data']:
                 if 'standaloneHostName' in db.keys():
-                    if self.database_host == db['standaloneHostName'].split('.')[0]:
+                    if self.database_host == db['standaloneHostName'].split('.')[0] and self.database_name == db['name']:
                         oracle_id = db['id']
                         break
                 elif 'racName' in db.keys():
-                    if self.database_host == db['racName']:
+                    if self.database_host == db['racName'] and self.database_name == db['name']:
                         oracle_id = db['id']
                         break
                     if any(instance['hostName'] == self.database_host for instance in db['instances']):
