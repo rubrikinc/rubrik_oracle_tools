@@ -45,7 +45,8 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     oracle_files_path = os.path.join(files_directory, new_oracle_name)
     logger.debug("Creating Oracle files directory {} if not present.".format(oracle_files_path))
     os.makedirs(oracle_files_path, exist_ok=True)
-
+    oradata_files_path = os.path.join(oracle_files_path, "oradata")
+    os.makedirs(oradata_files_path, exist_ok=True)
     logfile = os.path.join(oracle_files_path, "{}_Clone.log".format(new_oracle_name))
     fh = logging.FileHandler(logfile, mode='w')
     fh.setLevel(logging.DEBUG)
@@ -55,8 +56,10 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
 
     # Make sure this is being run on the target host
     if host_target.split('.')[0] != platform.uname()[1].split('.')[0]:
+        logger.debug("This program must be run on the target host: {}, aborting clone".format(host_target))
         raise RubrikOracleBackupMountCloneError("This program must be run on the target host: {}".format(host_target))
     if len(new_oracle_name) > 8:
+        logger.debug("The new oracle name: {} is too long. Oracle names must be 8 characters or less. Aborting clone".format(new_oracle_name))
         raise RubrikOracleBackupMountCloneError("The new oracle name: {} is too long. Oracle names must be 8 characters or less.".format(new_oracle_name))
     rubrik = rbs_oracle_common.RubrikConnection()
     source_host_db = source_host_db.split(":")
@@ -71,14 +74,15 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     # Use the provided time or if no time has been provided use the the most recent recovery point
     if time_restore:
         time_ms = database.epoch_time(time_restore, rubrik.timezone)
-        logger.info("Using {} for mount.". format(time_restore))
+        logger.warning("Using {} for mount.". format(time_restore))
     else:
-        logger.info("Using most recent recovery point for mount.")
+        logger.warning("Using most recent recovery point for mount.")
         time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
     # Check ORACLE_HOME and set to source ORACLE_HOME is not provided
     if not oracle_home:
         oracle_home = oracle_db_info['oracleHome']
     if not os.path.exists(oracle_home):
+        logger.debug("The ORACLE_HOME: {} does not exist on the target host: {}".format(oracle_home, host_target))
         raise RubrikOracleBackupMountCloneError("The ORACLE_HOME: {} does not exist on the target host: {}".format(oracle_home, host_target))
     # Get directories in path to allow us to find the new directory after the mount
     live_mount_directories = os.listdir(mount_path)
@@ -87,6 +91,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     live_mount_info = database.async_requests_wait(live_mount_info['id'], 20)
     logger.info("Async request completed with status: {}".format(live_mount_info['status']))
     if live_mount_info['status'] != "SUCCEEDED":
+        logger.debug("Mount of backup files did not complete successfully. Mount ended with status {}".format(live_mount_info['status']))
         raise RubrikOracleBackupMountCloneError("Mount of backup files did not complete successfully. Mount ended with status {}".format(live_mount_info['status']))
     logger.warning("Live mount of the backup files completed.")
     # Now determine the new live mount directory
@@ -95,6 +100,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     if len(live_mount_directory) == 1:
         backup_path = os.path.join(mount_path, live_mount_directory[0])
     else:
+        logger.debug("Multiple directories were created in {} during this operation. Live mount directory cannot be determined".format(mount_path))
         raise RubrikOracleBackupMountCloneError("Multiple directories were created in {} during this operation. Live mount directory cannot be determined".format(mount_path))
     logger.info("Using the live mount path: {}".format(backup_path))
     auto_backup_file = database.get_latest_autobackup(backup_path)
@@ -119,10 +125,12 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     sql_return = database.sqlplus_sysdba(oracle_home, "startup nomount pfile='{}'".format(init_file))
     logger.info(sql_return)
     if "ORA-01081: cannot start already-running ORACLE" in sql_return:
+        logger.debug("There is an instance of {} all ready running on this host. Aborting clone".format(new_oracle_name))
         raise RubrikOracleBackupMountCloneError("There is an instance of {} all ready running on this host. Aborting clone".format(new_oracle_name))
     sql_return = database.sqlplus_sysdba(oracle_home, "select instance_name from v$instance;")
     logger.info(sql_return)
     if new_oracle_name not in sql_return:
+        logger.debug("DB Instance check failed. Instance name is not {}. Aborting clone".format(new_oracle_name))
         raise RubrikOracleBackupMountCloneError("DB Instance check failed. Instance name is not {}. Aborting clone".format(new_oracle_name))
     logger.info(database.rman(oracle_home, "restore spfile from '{}';".format(auto_backup_file)))
     logger.info("Setting parameters in spfile before starting instance.")
@@ -130,12 +138,12 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set spfile='{}';".format(spfile)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set audit_file_dest='{}' scope=spfile;".format(audit_dir)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_unique_name='{}' scope=spfile;".format(new_oracle_name)))
-    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set control_files = '{}/control01.ctl' scope=spfile;".format(oracle_files_path)))
+    logger.info(database.sqlplus_sysdba(oracle_home, "alter system set control_files = '{}/control01.ctl' scope=spfile;".format(oradata_files_path)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_recovery_file_dest = '{}' scope=spfile;".format(fast_recovery_area)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set diagnostic_dest = '{}' scope=spfile;".format(oracle_files_path)))
     logger.info(database.sqlplus_sysdba(oracle_home, "alter system set db_recovery_file_dest_size = '1G' scope=spfile;"))
     logger.info(database.sqlplus_sysdba(oracle_home, 'startup force nomount;'))
-    logger.info(database.rman(oracle_home, "restore controlfile to '{0}/control01.ctl' from '{1}';".format(oracle_files_path, auto_backup_file)))
+    logger.info(database.rman(oracle_home, "restore controlfile to '{0}/control01.ctl' from '{1}';".format(oradata_files_path, auto_backup_file)))
     logger.info(database.sqlplus_sysdba(oracle_home, 'alter database mount;'))
 
     logger.warning("Setting redo log location.")
@@ -158,10 +166,11 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
                EXECUTE IMMEDIATE 'alter database rename file ''' || c_redo_files_var.member || ''' to ''' || l_new_member || '''';
            END LOOP;
         END;
-        / """.format(oracle_files_path)
+        / """.format(oradata_files_path)
     sql_return = database.sqlplus_sysdba(oracle_home, move_redo_sql)
     logger.info(sql_return)
     if "PL/SQL procedure successfully completed" not in sql_return:
+        logger.debug("Renaming redo logs failed. Aborting clone")
         raise RubrikOracleBackupMountCloneError("Renaming redo logs failed. Aborting clone")
     logger.warning("Setting temporary tablespace location.")
     move_temp_sql = """
@@ -183,10 +192,11 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
                EXECUTE IMMEDIATE 'alter database rename file ''' || c_temp_files_var.name  || ''' to ''' || l_new_file || '''';
            END LOOP;
         END;
-        / """.format(oracle_files_path)
+        / """.format(oradata_files_path)
     sql_return = database.sqlplus_sysdba(oracle_home, move_temp_sql)
     logger.info(sql_return)
     if "PL/SQL procedure successfully completed" not in sql_return:
+        logger.debug("Renaming tempfiles failed. Aborting clone")
         raise RubrikOracleBackupMountCloneError("Renaming tempfiles failed. Aborting clone")
 
     logger.warning("Cataloging the backup files.")
@@ -216,6 +226,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     logger.info("NID output:")
     logger.info(open(nid_log_file).read())
     if "Succesfully changed database name and ID" not in open(nid_log_file).read():
+        logger.debug("Renaming the database with the NID utility failed. Aborting clone")
         raise RubrikOracleBackupMountCloneError("Renaming the database with the NID utility failed. Aborting clone")
     os.remove(nid_log_file)
     logger.info(database.sqlplus_sysdba(oracle_home, 'startup force nomount;'))
