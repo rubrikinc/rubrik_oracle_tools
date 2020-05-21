@@ -34,8 +34,9 @@ def cli(source_host_db, mounted_host, new_oracle_name, oracle_home, all_mounts, 
     if mounted_host.split('.')[0] != platform.uname()[1].split('.')[0]:
         raise RubrikOracleCloneUnmountError("This program must be run on the mounted host: {}".format(mounted_host))
     source_host_db = source_host_db.split(":")
+    new_oracle_name = new_oracle_name.split(',')
     if source_host_db[1] in new_oracle_name:
-        raise RubrikOracleCloneUnmountError("This program cannot be used to drop a live mount of the same name as the source DB: {}".format(source_host_db[1]))
+        raise RubrikOracleCloneUnmountError("Requesting drop of source database. This is not allowed in case that database is running on this host. Please only use the clone database names for the databases to be removed.")
     rubrik = rbs_oracle_common.RubrikConnection()
     logger.info("Checking for live mounts of source db {} on host {}".format(source_host_db[1], mounted_host))
     mount = rbs_oracle_common.RubrikRbsOracleMount(rubrik, source_host_db[1], source_host_db[0], mounted_host)
@@ -43,9 +44,6 @@ def cli(source_host_db, mounted_host, new_oracle_name, oracle_home, all_mounts, 
     if not oracle_home:
         source_db_info = mount.get_oracle_db_info()
         oracle_home = source_db_info['oracleHome']
-    new_oracle_name = new_oracle_name.split(',')
-    if source_host_db[1] in new_oracle_name:
-        raise RubrikOracleCloneUnmountError("Requesting drop of source database. This is not allowed in case that database is running on this host. Please only use the clone database names for the databases to be removed.")
     force = True
     cluster_timezone = pytz.timezone(rubrik.timezone)
     utc = pytz.utc
