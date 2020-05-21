@@ -203,13 +203,21 @@ class RubrikRbsOracleDatabase:
             sla_id (str): The Rubrik SLA ID
 
         """
+        self.logger.debug("Getting SLA information")
         sla_info = self.rubrik.connection.get('v1', '/sla_domain?name={}'.format(sla_name))
+        self.logger.debug(sla_info)
+        sla_id = ''
         if sla_info['total'] == 0:
             raise RbsOracleCommonError("The sla: {} was not found on this Rubrik cluster.".format(sla_name))
-        elif sla_info['total'] > 1:
-            raise RbsOracleCommonError("Multiple SLAs with the name {} were found on this cluster.".format(sla_name))
-        else:
-            sla_id = sla_info['data'][0]['id']
+        elif sla_info['total'] >= 1:
+            for sla in sla_info['data']:
+                if sla['name'] == sla_name:
+                    self.logger.debug("Matched SLA:")
+                    self.logger.debug(sla)
+                    sla_id = sla['id']
+                    break
+        if not sla_id:
+            raise RbsOracleCommonError("The sla: {} was not found on this Rubrik cluster.".format(sla_name))
         return sla_id
 
     # New methods
