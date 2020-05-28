@@ -256,18 +256,16 @@ class RubrikRbsOracleDatabase:
         Returns:
             host_id (str): The host id
         """
+        hostname = hostname.split('.')[0]
         host_info = self.rubrik.connection.get('internal', '/oracle/host?name={}'.format(hostname))
         host_id = ''
-        if host_info['total'] == 0:
-            raise RbsOracleCommonError("The host: {} was not found on the Rubrik CDM.".format(hostname))
-        elif host_info['total'] > 1:
-            # found_hosts = []
+        if host_info['total'] > 0:
             for hosts in host_info['data']:
-                if hosts['primaryClusterId'] == primary_cluster_id and hosts['status'] == 'Connected':
+                if hosts['primaryClusterId'] == primary_cluster_id and hosts['status'] == 'Connected' and hosts['name'].split('.')[0] == hostname:
                     host_id = hosts['id']
-            # raise RubrikOracleModuleError("Multiple Host IDs found: {} ".format(found_hosts))
-        else:
-            host_id = host_info['data'][0]['id']
+                    break
+        if not host_id:
+            raise RbsOracleCommonError("The host: {} was not found on the Rubrik CDM.".format(hostname))
         return host_id
 
     def get_rac_id(self, primary_cluster_id, rac_cluster_name):
@@ -289,7 +287,7 @@ class RubrikRbsOracleDatabase:
                 "The target: {} either was not found or is not a RAC cluster.".format(rac_cluster_name))
         elif rac_info['total'] > 1:
             for rac in rac_info['data']:
-                if rac['primaryClusterId'] == primary_cluster_id and rac['status'] == 'Connected':
+                if rac['primaryClusterId'] == primary_cluster_id and rac['status'] == 'Connected' and rac['name'] == rac_cluster_name:
                     rac_id = rac['id']
                     break
             # raise RubrikOracleModuleError("Multiple RAC IDs found: {} ".format(found_clusters))
@@ -511,11 +509,9 @@ class RubrikRbsOracleMount(RubrikRbsOracleDatabase):
                         mount_host_id = rac['id']
                 if mount_host_id:
                     break
-        elif rac_id['total'] == 1:
-            mount_host_id = rac_id['data'][0]['id']
         else:
             for rac in rac_id['data']:
-                if rac['primaryClusterId'] == self.rubrik.cluster_id and rac['status'] == 'Connected':
+                if rac['primaryClusterId'] == self.rubrik.cluster_id and rac['status'] == 'Connected' and rac['name'] == self.database_mount_host:
                     mount_host_id = rac['id']
         if not mount_host_id:
             mount_host_id = self.get_host_id(self.rubrik.cluster_id, self.database_mount_host)
