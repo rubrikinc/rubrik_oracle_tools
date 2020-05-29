@@ -50,10 +50,16 @@ class RubrikConnection:
         self.logger = logging.getLogger(__name__ + '.RubrikConnection')
         self.__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
         self.logger.debug("Loading config.json files. Using credentials if present, if not using environment variables ")
-        with open(os.path.join(self.__location__, 'config.json')) as config_file:
-            self.config = json.load(config_file)
-        if not self.config['rubrik_cdm_node_ip']:
-            self.config['rubrik_cdm_node_ip'] = None
+        self.config = {
+            'rubrik_cdm_node_ip': None,
+            'rubrik_cdm_username': None,
+            'rubrik_cdm_password': None,
+            'rubrik_cdm_token': None
+        }
+        config_file_path = os.path.join(self.__location__, 'config.json')
+        if os.path.exists(config_file_path):
+            with open(config_file_path) as config_file:
+                self.config = json.load(config_file)
         self.logger.debug("Instantiating RubrikConnection using rubrik_cdm.Connect.")
         self.connection = rubrik_cdm.Connect(self.config['rubrik_cdm_node_ip'], self.config['rubrik_cdm_username'], self.config['rubrik_cdm_password'], self.config['rubrik_cdm_token'])
         self.cluster = self.connection.get('v1', '/cluster/me')
