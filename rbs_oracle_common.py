@@ -60,6 +60,11 @@ class RubrikConnection:
         if os.path.exists(config_file_path):
             with open(config_file_path) as config_file:
                 self.config = json.load(config_file)
+            for setting in self.config:
+                self.logger.debug("Read in configuration: {} : {}".format(setting, self.config[setting]))
+                if not (self.config[setting] and self.config[setting].strip()):
+                    self.logger.debug("Setting {} to None".format(setting))
+                    self.config[setting] = None
         self.logger.debug("Instantiating RubrikConnection using rubrik_cdm.Connect.")
         self.connection = rubrik_cdm.Connect(self.config['rubrik_cdm_node_ip'], self.config['rubrik_cdm_username'], self.config['rubrik_cdm_password'], self.config['rubrik_cdm_token'])
         self.cluster = self.connection.get('v1', '/cluster/me')
