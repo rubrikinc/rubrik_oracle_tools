@@ -48,7 +48,6 @@ class RubrikConnection:
     """
     def __init__(self):
         self.logger = logging.getLogger(__name__ + '.RubrikConnection')
-        self.__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
         self.logger.debug("Loading config.json files. Using credentials if present, if not using environment variables ")
         self.config = {
             'rubrik_cdm_node_ip': None,
@@ -56,12 +55,13 @@ class RubrikConnection:
             'rubrik_cdm_password': None,
             'rubrik_cdm_token': None
         }
+        self.__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+        self.logger.debug("The config file location is {}.".format(self.__location__))
         config_file_path = os.path.join(self.__location__, 'config.json')
         if os.path.exists(config_file_path):
             with open(config_file_path) as config_file:
                 self.config = json.load(config_file)
             for setting in self.config:
-                self.logger.debug("Read in configuration: {} : {}".format(setting, self.config[setting]))
                 if not (self.config[setting] and self.config[setting].strip()):
                     self.logger.debug("Setting {} to None".format(setting))
                     self.config[setting] = None
