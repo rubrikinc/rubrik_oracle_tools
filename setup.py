@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='rubrikOracleTools',
     version='1.0',
-    py_modules=['rubrik_oracle_module', 'rubrik_oracle_backup_info', 'rubrik_oracle_backup_mount',
+    py_modules=['rbs_oracle_common', 'rubrik_oracle_backup_info', 'rubrik_oracle_backup_mount',
                 'rubrik_oracle_unmount', 'rubrik_oracle_db_mount', 'rubrik_oracle_snapshot',
                 'rubrik_oracle_log_backup', 'rubrik_oracle_db_mount_clone', 'rubrik_oracle_clone_unmount',
                 'rubrik_oracle_backup_mount_clone', 'rubrik_oracle_mount_info'],
