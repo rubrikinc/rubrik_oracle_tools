@@ -79,8 +79,9 @@ class RubrikRbsOracleDatabase:
     """
     Rubrik RBS (snappable) Oracle backup object.
     """
-    def __init__(self, rubrik, database_name, database_host):
+    def __init__(self, rubrik, database_name, database_host, timeout=180):
         self.logger = logging.getLogger(__name__ + '.RubrikRbsOracleDatabase')
+        self.cdm_timeout = timeout
         self.database_name = database_name
         self.database_host = database_host
         self.rubrik = rubrik
@@ -101,7 +102,7 @@ class RubrikRbsOracleDatabase:
         # that fix is in place get the id using a basic Get.
         #     oracle_db_id = self.rubrik.connection.object_id(oracle_db_name, 'oracle_db', hostname=oracle_host_name)
         #     return oracle_db_id
-        oracle_dbs = self.rubrik.connection.get("internal", "/oracle/db?name={}".format(self.database_name), timeout=60)
+        oracle_dbs = self.rubrik.connection.get("internal", "/oracle/db?name={}".format(self.database_name), timeout=self.cdm_timeout)
         # Find the oracle_db object with the correct hostName or RAC cluster name.
         # Instance names can be stored/entered with and without the domain name so
         # we will compare the hostname without the domain.
@@ -152,7 +153,7 @@ class RubrikRbsOracleDatabase:
         Returns:
             oracle_db_recoverable_range_info (dict): The Rubrik CDM database recovery ranges.
         """
-        oracle_db_recoverable_range_info = self.rubrik.connection.get('internal', '/oracle/db/{}/recoverable_range'.format(self.oracle_id),timeout=60)
+        oracle_db_recoverable_range_info = self.rubrik.connection.get('internal', '/oracle/db/{}/recoverable_range'.format(self.oracle_id),timeout=self.cdm_timeout)
         return oracle_db_recoverable_range_info
 
     def get_oracle_db_snapshots(self):
@@ -164,7 +165,7 @@ class RubrikRbsOracleDatabase:
         Returns:
             oracle_db_recoverable_range_info (dict): The Rubrik CDM database available snapshots.
         """
-        oracle_db_snapshot_info = self.rubrik.connection.get('internal', '/oracle/db/{}/snapshot'.format(self.oracle_id), timeout=60)
+        oracle_db_snapshot_info = self.rubrik.connection.get('internal', '/oracle/db/{}/snapshot'.format(self.oracle_id), timeout=self.cdm_timeout)
         return oracle_db_snapshot_info
 
     def oracle_db_snapshot(self, sla_id, force):
@@ -252,7 +253,7 @@ class RubrikRbsOracleDatabase:
             "targetMountPath": mount_path,
             "shouldMountFilesOnly": files_only
         }
-        live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=60)
+        live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         return live_mount_info
 
     def get_host_id(self, primary_cluster_id, hostname):
@@ -310,7 +311,7 @@ class RubrikRbsOracleDatabase:
         timeout_start = time.time()
         terminal_states = ['FAILED', 'CANCELED', 'SUCCEEDED']
         while time.time() < timeout_start + (timeout * 60):
-            oracle_request = self.rubrik.connection.get('internal', '/oracle/request/{}'.format(requests_id), timeout=60)
+            oracle_request = self.rubrik.connection.get('internal', '/oracle/request/{}'.format(requests_id), timeout=self.cdm_timeout)
             if oracle_request['status'] in terminal_states:
                 break
             with yaspin(text='Request status: {}'.format(oracle_request['status'])):
