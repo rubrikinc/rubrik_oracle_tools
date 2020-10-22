@@ -260,8 +260,7 @@ Options:
  rubrik_oracle_backup_mount_clone --help
 Usage: rubrik_oracle_backup_mount_clone [OPTIONS]
 
-      This will mount the requested Rubrik Oracle backup set on the provided
-      path.
+      This will live mount the database with a new name. 
 
       The source database is specified in a host:db format. The backup mount path is required. If the restore time is not
       provided the most recent recoverable time will be used. The host for the mount clone must be specified along with
