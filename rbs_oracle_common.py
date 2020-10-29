@@ -141,7 +141,7 @@ class RubrikRbsOracleDatabase:
         Returns:
             oracle_db_info (dict): The json returned  from the Rubrik CDM with the database information converted to a dictionary.
         """
-        oracle_db_info = self.rubrik.connection.get('internal', '/oracle/db/{}'.format(self.oracle_id))
+        oracle_db_info = self.rubrik.connection.get('internal', '/oracle/db/{}'.format(self.oracle_id), timeout=self.cdm_timeout)
         return oracle_db_info
 
     def get_oracle_db_recoverable_range(self):
@@ -153,7 +153,7 @@ class RubrikRbsOracleDatabase:
         Returns:
             oracle_db_recoverable_range_info (dict): The Rubrik CDM database recovery ranges.
         """
-        oracle_db_recoverable_range_info = self.rubrik.connection.get('internal', '/oracle/db/{}/recoverable_range'.format(self.oracle_id),timeout=self.cdm_timeout)
+        oracle_db_recoverable_range_info = self.rubrik.connection.get('internal', '/oracle/db/{}/recoverable_range'.format(self.oracle_id), timeout=self.cdm_timeout)
         return oracle_db_recoverable_range_info
 
     def get_oracle_db_snapshots(self):
@@ -187,7 +187,7 @@ class RubrikRbsOracleDatabase:
             "slaId": sla_id,
             "forceFullSnapshot": force
         }
-        db_snapshot_info = self.rubrik.connection.post('internal', '/oracle/db/{}/snapshot'.format(self.oracle_id), payload)
+        db_snapshot_info = self.rubrik.connection.post('internal', '/oracle/db/{}/snapshot'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         return db_snapshot_info
 
     def oracle_log_backup(self):
@@ -200,7 +200,7 @@ class RubrikRbsOracleDatabase:
             A list of the information returned from the Rubrik CDM  from the log backup request.
 
         """
-        oracle_log_backup_info = self.rubrik.connection.post('internal', '/oracle/db/{}/log_backup'.format(self.oracle_id), '')
+        oracle_log_backup_info = self.rubrik.connection.post('internal', '/oracle/db/{}/log_backup'.format(self.oracle_id), '', timeout=self.cdm_timeout)
         return oracle_log_backup_info
 
     def get_sla_id(self, sla_name):
@@ -269,7 +269,7 @@ class RubrikRbsOracleDatabase:
             host_id (str): The host id
         """
         hostname = hostname.split('.')[0]
-        host_info = self.rubrik.connection.get('internal', '/oracle/host?name={}'.format(hostname))
+        host_info = self.rubrik.connection.get('internal', '/oracle/host?name={}'.format(hostname), timeout=self.cdm_timeout)
         host_id = ''
         if host_info['total'] > 0:
             for hosts in host_info['data']:
@@ -292,7 +292,7 @@ class RubrikRbsOracleDatabase:
         Returns:
             rac_id (str): The RAC Cluster ID  if found otherwise will exit with error condition.
         """
-        rac_info = self.rubrik.connection.get('internal', '/oracle/rac?name={}'.format(rac_cluster_name))
+        rac_info = self.rubrik.connection.get('internal', '/oracle/rac?name={}'.format(rac_cluster_name), timeout=self.cdm_timeout)
         rac_id = ''
         if rac_info['total'] == 0:
             raise RbsOracleCommonError(
