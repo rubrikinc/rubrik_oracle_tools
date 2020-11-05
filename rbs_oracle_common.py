@@ -383,10 +383,10 @@ class RubrikRbsOracleDatabase:
         stdout, stderr = session.communicate()
         return stdout.decode()
 
-    def rman(self, oracle_home, rman_command):
+    def rman(self, oracle_home, rman_command, target="target"):
         self.logger.info("RMAN: {}".format(rman_command))
-        sql_args = [os.path.join(oracle_home, 'bin', 'rman'), 'target', '/']
-        session = Popen(sql_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        rman_args = [os.path.join(oracle_home, 'bin', 'rman'), target, '/']
+        session = Popen(rman_args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         session.stdin.write(rman_command.encode())
         stdout, stderr = session.communicate()
         return stdout.decode()
@@ -541,7 +541,7 @@ class RubrikRbsOracleMount(RubrikRbsOracleDatabase):
         live_mount_info = self.rubrik.connection.get('internal', '/oracle/db/mount/{}'.format(live_mount_id))
         return live_mount_info
 
-    def live_mount_delete(self, live_mount_id, force):
+    def live_mount_delete(self, live_mount_id, force=False):
         """
         This will unmount a live mounted database or backup set.
 
