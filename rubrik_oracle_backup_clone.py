@@ -6,17 +6,15 @@ import sys
 import os
 import platform
 import json
-import datetime
-import pytz
-from subprocess import PIPE, Popen
+import configparser
 
 
 @click.command()
 @click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
 @click.option('--mount_path', '-m', type=str, required=True, help='The path used to mount the backup files')
-@click.option('--host_target', '-h', type=str, required=True, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount.')
+@click.option('--host_target', '-h', type=str, required=True, help='Host or RAC cluster name for the Live Mount.')
 @click.option('--new_oracle_name', '-n', type=str, required=True, help='Name for the cloned live mounted database')
-@click.option('--configuration', '-c', type=str, help='Oracle duplicate configuration json')
+@click.option('--configuration', '-c', type=str, help='Oracle duplicate configuration file')
 @click.option('--configuration_file', '-f', type=str, help='Oracle duplicate configuration file')
 @click.option('--oracle_home', '-o', type=str, help='ORACLE_HOME path for this database clone')
 @click.option('--time_restore', '-t', type=str, help='The point in time for the database clone in  iso 8601 format (2019-04-30T18:23:21)')
@@ -68,16 +66,32 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
         configuration = json.load(configuration)
         logger.debug("Parameters for duplicate loaded from json: {}.".format(configuration))
     elif configuration_file:
-        f = open(configuration_file)
-        configuration = json.load(f)
-        logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
+        # f = open(configuration_file)
+        # configuration = json.load(f)
+        configuration = configparser.ConfigParser()
+        configuration.read(configuration_file)
+
+        spfile = configuration['parameters']['spfile']
+        no_file_name_check = configuration['parameters']['no_file_name_check']
+        drop_database = configuration['parameters']['drop_database']
+        # refresh_db = configuration['parameters']['refresh_db']
+
+        # if configuration['parameters'].getboolean('spfile'):
+        #     print(configuration['parameters']['spfile'])
+        #     print("spfile is True")
+        # else:
+        #     print(configuration['parameters']['spfile'])
+        #     print("spfile is False")
+    logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
+
+
     rubrik = rbs_oracle_common.RubrikConnection()
     source_host_db = source_host_db.split(":")
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
     oracle_db_info = database.get_oracle_db_info()
-    spfile = True
-    no_file_name_check = True
-    drop_database = True
+    # spfile = True
+    # no_file_name_check = True
+    # drop_database = True
     # If the source database is on a RAC cluster the target must be a RAC cluster otherwise it will be an Oracle Host
     if 'racName' in oracle_db_info.keys():
         if oracle_db_info['racName']:
@@ -153,6 +167,13 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
         duplicate_commands = duplicate_commands + """until time "TO_DATE('{}','YYYY-MM-DD HH24:MI:SS')"  """.format(time_restore)
     if spfile:
         duplicate_commands = duplicate_commands + "SPFILE parameter_value_convert ('{}','{}') ".format(source_host_db[1], new_oracle_name)
+    if configuration['parameters']['db_file_name_convert']:
+        duplicate_commands = duplicate_commands + "set  db_file_name_convert = {} ".format(configuration['parameters']['db_file_name_convert'])
+    if configuration['parameters']['control_files']:
+        duplicate_commands = duplicate_commands + "set  control_files = {} ".format(configuration['parameters']['control_files'])
+    if configuration['parameters']['log_file_name_convert']:
+        duplicate_commands = duplicate_commands + "set  log_file_name_convert = {} ".format(configuration['parameters']['log_file_name_convert'])
+
     duplicate_commands = duplicate_commands + "BACKUP LOCATION '{}' ".format(mount_path)
     if no_file_name_check:
         duplicate_commands = duplicate_commands + "NOFILENAMECHECK;"
