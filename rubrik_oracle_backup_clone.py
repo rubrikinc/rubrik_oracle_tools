@@ -61,6 +61,13 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     if len(new_oracle_name) > 8:
         logger.debug("The new oracle name: {} is too long. Oracle names must be 8 characters or less. Aborting clone".format(new_oracle_name))
         raise RubrikOracleBackupMountCloneError("The new oracle name: {} is too long. Oracle names must be 8 characters or less.".format(new_oracle_name))
+
+    # Initialize variables
+    spfile = True
+    no_file_name_check = False
+    refresh_db = False
+    drop_database = False
+
     # Read in the configuration
     if configuration:
         configuration = json.load(configuration)
@@ -71,27 +78,21 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
         configuration = configparser.ConfigParser()
         configuration.read(configuration_file)
 
-        spfile = configuration['parameters']['spfile']
-        no_file_name_check = configuration['parameters']['no_file_name_check']
-        drop_database = configuration['parameters']['drop_database']
-        # refresh_db = configuration['parameters']['refresh_db']
-
-        # if configuration['parameters'].getboolean('spfile'):
-        #     print(configuration['parameters']['spfile'])
-        #     print("spfile is True")
-        # else:
-        #     print(configuration['parameters']['spfile'])
-        #     print("spfile is False")
-    logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
+        if 'spfile' in configuration['parameters'].keys():
+            spfile = configuration['parameters'].getboolean('spfile')
+        if 'no_file_name_check' in configuration['parameters'].keys():
+            no_file_name_check = configuration['parameters'].getboolean('no_file_name_check')
+        if 'refresh_db' in configuration['parameters'].keys():
+            refresh_db = configuration['parameters'].getboolean('refresh_db')
+        if 'drop_database' in configuration['parameters'].keys():
+            drop_database = configuration['parameters'].getboolean('drop_database')
+        logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
 
 
     rubrik = rbs_oracle_common.RubrikConnection()
     source_host_db = source_host_db.split(":")
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
     oracle_db_info = database.get_oracle_db_info()
-    # spfile = True
-    # no_file_name_check = True
-    # drop_database = True
     # If the source database is on a RAC cluster the target must be a RAC cluster otherwise it will be an Oracle Host
     if 'racName' in oracle_db_info.keys():
         if oracle_db_info['racName']:
@@ -136,20 +137,33 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
 
     os.environ["ORACLE_HOME"] = oracle_home
     os.environ["ORACLE_SID"] = new_oracle_name
+    logger.debug("Setting env variable ORACLE_HOME={}, ORACLE_SID={}.".format(oracle_home, new_oracle_name))
     if drop_database:
+        logger.warning("Dropping Database...")
         logger.info(database.sqlplus_sysdba(oracle_home, 'startup force mount restrict exclusive;'))
         logger.info(database.sqlplus_sysdba(oracle_home, 'drop database;'))
         logger.warning("Database dropped prior to refresh.")
-
-    init_file = os.path.join(oracle_home, 'dbs', 'init{}.ora'.format(new_oracle_name))
-    logger.debug("Creating new temporary init file {}".format(init_file))
-    with open(init_file, 'w') as file:
-        file.write('db_name={}\n'.format(new_oracle_name))
-    logger.debug("Setting env variable ORACLE_HOME={}, ORACLE_SID={}.".format(oracle_home, new_oracle_name))
+    if spfile:
+        init_file = os.path.join(oracle_home, 'dbs', 'init{}.ora'.format(new_oracle_name))
+        logger.debug("Creating new temporary init file {}".format(init_file))
+        with open(init_file, 'w') as file:
+            file.write('db_name={}\n'.format(new_oracle_name))
 
     logger.warning("Starting auxiliary instance")
-    sql_return = database.sqlplus_sysdba(oracle_home, "startup nomount pfile='{}'".format(init_file))
-    logger.info(sql_return)
+    if spfile and not refresh_db:
+        sql_return = database.sqlplus_sysdba(oracle_home, "startup nomount pfile='{}'".format(init_file))
+        logger.info(sql_return)
+    elif spfile and refresh_db:
+        logger.info(database.sqlplus_sysdba(oracle_home, "shutdown immediate;"))
+        sql_return = database.sqlplus_sysdba(oracle_home, "startup nomount pfile='{}'".format(init_file))
+        logger.info(sql_return)
+    elif not spfile and refresh_db:
+        logger.info(database.sqlplus_sysdba(oracle_home, "shutdown immediate;"))
+        sql_return = database.sqlplus_sysdba(oracle_home, "startup nomount")
+        logger.info(sql_return)
+    else:
+        sql_return = database.sqlplus_sysdba(oracle_home, "startup nomount")
+        logger.info(sql_return)
     if "ORA-01081: cannot start already-running ORACLE" in sql_return:
         logger.debug("There is an instance of {} all ready running on this host. Aborting clone".format(new_oracle_name))
         raise RubrikOracleBackupMountCloneError("There is an instance of {} all ready running on this host. Aborting clone".format(new_oracle_name))
@@ -159,7 +173,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
         logger.debug("DB Instance check failed. Instance name is not {}. Aborting clone".format(new_oracle_name))
         raise RubrikOracleBackupMountCloneError("DB Instance check failed. Instance name is not {}. Aborting clone".format(new_oracle_name))
 
-    logger.warning("Beginning duplicate of {} database.".format(new_oracle_name))
+    logger.warning("Beginning duplicate of {} to {} on host {}.".format(source_host_db[1], new_oracle_name, source_host_db[0]))
 
     duplicate_commands = "duplicate database to {} ".format(new_oracle_name)
     if time_restore:
