@@ -114,11 +114,11 @@ rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore 
         if 'refresh_db' in configuration['parameters'].keys():
             refresh_db = configuration['parameters'].getboolean('refresh_db')
         if 'control_files' in configuration['parameters'].keys():
-            control_files = configuration['parameters'].getboolean('control_files')
+            control_files = configuration['parameters']['control_files']
         if 'db_file_name_convert' in configuration['parameters'].keys():
-            db_file_name_convert = configuration['parameters'].getboolean('db_file_name_convert')
+            db_file_name_convert = configuration['parameters']['db_file_name_convert']
         if 'log_file_name_convert' in configuration['parameters'].keys():
-            log_file_name_convert = configuration['parameters'].getboolean('log_file_name_convert')
+            log_file_name_convert = configuration['parameters']['log_file_name_convert']
         logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
 
     rubrik = rbs_oracle_common.RubrikConnection()
