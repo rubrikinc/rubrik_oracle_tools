@@ -89,6 +89,8 @@ chmod 600 config.json
 
 ## :mag: Available commands:
 ----------------------------------------------------
+Note all the commands containing clone must be run on the clone host.
+
 #### rubrik_oracle_backup_info
 ```
 rubrik_oracle_backup_info --help
@@ -381,5 +383,106 @@ Options:
 
   -d, --debug_level TEXT      Logging level: DEBUG, INFO, WARNING or CRITICAL.
   --help                      Show this message and exit.
+
+```
+
+#### rubrik_oracle_backup_clone
+```
+ python rubrik_oracle_backup_clone.py --help
+Usage: rubrik_oracle_backup_clone.py [OPTIONS]
+
+      This will use the Rubrik RMAN backups to do a duplicate (or refresh)
+      of an Oracle Database.
+
+      The source database is specified in a host:db format. The backup mount path and the new Oracle DB name are required.
+      If the restore time is not provided the most recent recoverable time will be used. All the optional parameters can be
+      provided in a configuration file. All the flag options must be entered as true false in the configuration file.
+      If the Oracle Home is not specified the ORACLE_HOME path from the source database will be used. If a log directory is
+      not specified, no log will be created.
+  
+  Example:
+  rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n oracln -t 2020-11-06T00:06:00
+  -l /home/oracle/clone_logs --no_file_name_check --refresh_db
+  --db_file_name_convert '/u02/oradata/ora1db/','/u02/oradata/oracln/'
+  --control_files '/u02/oradata/oracln/control01.ctl','/u02/oradata/oracln/control02.ctl'
+  --log_file_name_convert '/u02/oradata/ora1db/','u02/oradata/oracln/'
+  
+  Example Configuration File:
+  ### The following line is required:
+  [parameters]
+  ### All parameters are optional. Command line flags are boolean (true/false)
+  ### Do not restore the spfile renaming the parameters with the new db name.
+  # no_spfile = true
+  ### Pint in time for duplicate
+  # time_restore = 2020-11-08T00:06:00
+  ### ORACLE_HOME if different than source db
+  # oracle_home = /u01/app/oracle/product/12.2.0/dbhome_1
+  ### Do not check for existing files
+  # no_file_name_check = true
+  ### Refresh an existing database. The database will be shutdown and the existing file will be overwritten.
+  ### Requires no_file_name_check = True
+  # refresh_db = True
+  ### Control File locations
+  # control_files = '/u02/oradata/clonedb/control01.ctl','/u02/oradata/clonedb/control02.ctl'
+  ### Remap the database files
+  # db_file_name_convert = '/u02/oradata/ora1db/','/u02/oradata/clonedb/'
+  ### Remap the redo log locations
+  # log_file_name_convert = '/u02/oradata/ora1db/','u02/oradata/clonedb/'
+  ### Directory where logs will be created. If not provided not logs will be created
+  # log_path = /home/oracle/clone_logs
+  
+  Example:
+  rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n oracln -f /home/oracle/clone_config.txt
+
+
+
+Options:
+  -s, --source_host_db TEXT      The source <host or RAC cluster>:<database>
+                                 [required]
+
+  -m, --mount_path TEXT          The path used to mount the backup files
+                                 [required]
+
+  -n, --new_oracle_name TEXT     Name for the cloned live mounted database
+                                 [required]
+
+  -f, --configuration_file TEXT  Oracle duplicate configuration file, can be
+                                 used for all optional parameters. Overrides
+                                 any set as script options
+
+  -t, --time_restore TEXT        The point in time for the database clone in
+                                 iso 8601 format (2019-04-30T18:23:21)
+
+  -o, --oracle_home TEXT         ORACLE_HOME path for this database clone
+  --no_spfile                    Restore SPFILE and replace instance specific
+                                 parameters with new DB name
+
+  --no_file_name_check           Do not check for existing files and overwrite
+                                 existing files. Potentially destructive use
+                                 with caution
+
+  --refresh_db                   Refresh and existing database. Overwriting
+                                 exiting database. Requires
+                                 no_file_name_check.
+
+  --control_files TEXT           Locations for control files. Using full paths
+                                 in single quotes separated by commas
+
+  --db_file_name_convert TEXT    Remap the datafile locations. Using full
+                                 paths in single quotes separated by commas in
+                                 pairs of 'from location','to location'
+
+  --log_file_name_convert TEXT   Remap the redo log locations. Using full
+                                 paths in single quotes separated by commas in
+                                 pairs of 'from location','to location'
+
+  -l, --log_path TEXT            Log directory, if not specified the
+                                 mount_path with be used.
+
+  -d, --debug_level TEXT         Logging level: DEBUG, INFO, WARNING or
+                                 CRITICAL.
+
+  --help                         Show this message and exit.
+
 
 ```
