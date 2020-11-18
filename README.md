@@ -388,7 +388,7 @@ Options:
 
 #### rubrik_oracle_backup_clone
 ```
- python rubrik_oracle_backup_clone.py --help
+ rubrik_oracle_backup_clone.py --help
 Usage: rubrik_oracle_backup_clone.py [OPTIONS]
 
       This will use the Rubrik RMAN backups to do a duplicate (or refresh)
