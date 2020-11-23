@@ -82,6 +82,26 @@ rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore 
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
+    # Read in the configuration
+    if configuration_file:
+        configuration = configparser.ConfigParser()
+        configuration.read(configuration_file)
+        if 'no_spfile' in configuration['parameters'].keys():
+            no_spfile = configuration['parameters'].getboolean('spfile')
+        if 'no_file_name_check' in configuration['parameters'].keys():
+            no_file_name_check = configuration['parameters'].getboolean('no_file_name_check')
+        if 'refresh_db' in configuration['parameters'].keys():
+            refresh_db = configuration['parameters'].getboolean('refresh_db')
+        if 'control_files' in configuration['parameters'].keys():
+            control_files = configuration['parameters']['control_files']
+        if 'db_file_name_convert' in configuration['parameters'].keys():
+            db_file_name_convert = configuration['parameters']['db_file_name_convert']
+        if 'log_file_name_convert' in configuration['parameters'].keys():
+            log_file_name_convert = configuration['parameters']['log_file_name_convert']
+        if 'log_path' in configuration['parameters'].keys():
+            log_path = configuration['parameters']['log_path']
+        logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
+
     # Set up the file logging
     if log_path:
         os.makedirs(log_path, exist_ok=True)
@@ -102,24 +122,6 @@ rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore 
     if new_oracle_name == source_host_db[1]:
         logger.debug("The new oracle db name {} cannot be the same as the source db name {} ".format(new_oracle_name, source_host_db[1]))
         raise RubrikOracleBackupMountCloneError("The new oracle db name {} cannot be the same as the source db name {} ".format(new_oracle_name, source_host_db[1]))
-
-    # Read in the configuration
-    if configuration_file:
-        configuration = configparser.ConfigParser()
-        configuration.read(configuration_file)
-        if 'no_spfile' in configuration['parameters'].keys():
-            no_spfile = configuration['parameters'].getboolean('spfile')
-        if 'no_file_name_check' in configuration['parameters'].keys():
-            no_file_name_check = configuration['parameters'].getboolean('no_file_name_check')
-        if 'refresh_db' in configuration['parameters'].keys():
-            refresh_db = configuration['parameters'].getboolean('refresh_db')
-        if 'control_files' in configuration['parameters'].keys():
-            control_files = configuration['parameters']['control_files']
-        if 'db_file_name_convert' in configuration['parameters'].keys():
-            db_file_name_convert = configuration['parameters']['db_file_name_convert']
-        if 'log_file_name_convert' in configuration['parameters'].keys():
-            log_file_name_convert = configuration['parameters']['log_file_name_convert']
-        logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
 
     rubrik = rbs_oracle_common.RubrikConnection()
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
