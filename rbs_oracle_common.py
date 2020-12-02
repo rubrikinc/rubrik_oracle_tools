@@ -302,10 +302,42 @@ class RubrikRbsOracleDatabase:
                 if rac['primaryClusterId'] == primary_cluster_id and rac['status'] == 'Connected' and rac['name'] == rac_cluster_name:
                     rac_id = rac['id']
                     break
-            # raise RubrikOracleModuleError("Multiple RAC IDs found: {} ".format(found_clusters))
         else:
             rac_id = rac_info['data'][0]['id']
         return rac_id
+
+    def get_target_id(self, primary_cluster_id, target_name):
+        """
+        Gets the RAC Cluster ID or the Host ID using the target name.
+
+        Args:
+            self (object): Database Object
+            target_name (str): The target name.
+            primary_cluster_id (str): The rubrik cluster id
+
+        Returns:
+            target_id (str): The RAC or Host ID  if found otherwise will exit with error condition.
+        """
+        rac_info = self.rubrik.connection.get('internal', '/oracle/rac?name={}'.format(target_name), timeout=self.cdm_timeout)
+        target_id = ''
+        if rac_info['total'] == 1 and rac_info['data'][0]['name'] == target_name:
+            target_id = rac_info['data'][0]['id']
+        elif rac_info['total'] > 1:
+            for rac in rac_info['data']:
+                if rac['primaryClusterId'] == primary_cluster_id and rac['status'] == 'Connected' and rac['name'] == target_name:
+                    target_id = rac['id']
+                    break
+        else:
+            target_name = target_name.split('.')[0]
+            host_info = self.rubrik.connection.get('internal', '/oracle/host?name={}'.format(target_name), timeout=self.cdm_timeout)
+            if host_info['total'] > 0:
+                for hosts in host_info['data']:
+                    if hosts['primaryClusterId'] == primary_cluster_id and hosts['status'] == 'Connected' and hosts['name'].split('.')[0] == target_name:
+                        target_id = hosts['id']
+                        break
+        if not target_id:
+            raise RbsOracleCommonError("The host or RAC cluster: {} was not found on the Rubrik CDM.".format(target_name))
+        return target_id
 
     def async_requests_wait(self, requests_id, timeout):
         timeout_start = time.time()
