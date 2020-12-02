@@ -41,15 +41,10 @@ def cli(source_host_db, mount_path, time_restore, host_target, no_wait, debug_le
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
     oracle_db_info = database.get_oracle_db_info()
     logger.debug(oracle_db_info)
-    # If not target host is provide mount the backup pieces on the source database host
     if not host_target:
         host_target = source_host_db[0]
     # If the source database is on a RAC cluster the target must be a RAC cluster otherwise it will be an Oracle Host
-    if 'racName' in oracle_db_info.keys():
-        if oracle_db_info['racName']:
-            host_id = database.get_rac_id(rubrik.cluster_id, host_target)
-    else:
-        host_id = database.get_host_id(rubrik.cluster_id, host_target)
+    target_id = database.get_target_id(rubrik.cluster_id, host_target)
     # Use the provided time or if no time has been provided use the teh most recent recovery point
     if time_restore:
         time_ms = database.epoch_time(time_restore, rubrik.timezone)
@@ -58,7 +53,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, no_wait, debug_le
         logger.warning("Using most recent recovery point for mount.")
         time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
     logger.warning("Starting the mount of the requested {} backup pieces on {}.".format(source_host_db[1], host_target))
-    live_mount_info = database.live_mount(host_id, time_ms, files_only=True, mount_path=mount_path)
+    live_mount_info = database.live_mount(target_id, time_ms, files_only=True, mount_path=mount_path)
     cluster_timezone = pytz.timezone(rubrik.timezone)
     utc = pytz.utc
     start_time = utc.localize(datetime.datetime.fromisoformat(live_mount_info['startTime'][:-1])).astimezone(cluster_timezone)
