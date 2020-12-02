@@ -43,8 +43,18 @@ def cli(source_host_db, mount_path, time_restore, host_target, no_wait, debug_le
     logger.debug(oracle_db_info)
     if not host_target:
         host_target = source_host_db[0]
-    # If the source database is on a RAC cluster the target must be a RAC cluster otherwise it will be an Oracle Host
-    target_id = database.get_target_id(rubrik.cluster_id, host_target)
+    # If the CDM version is pre 5.2.1 and the source database is on a RAC cluster the target must be a RAC cluster otherwise it will be an Oracle Host
+    cdm_version = rubrik.version.split("-")[0].split(".")
+    if int(cdm_version[0]) < 6 and int(cdm_version[1]) < 3 and (int(cdm_version[1]) < 2 or int(cdm_version[2]) < 1):
+        logger.info("Cluster version {} is pre 5.2.1".format(cdm_version))
+        if 'racName' in oracle_db_info.keys():
+            if oracle_db_info['racName']:
+                target_id = database.get_rac_id(rubrik.cluster_id, host_target)
+            else:
+                target_id = database.get_host_id(rubrik.cluster_id, host_target)
+    else:
+        logger.info("Cluster version {}.{}.{} is post 5.2.1".format(cdm_version[0], cdm_version[1], cdm_version[2]))
+        target_id = database.get_target_id(rubrik.cluster_id, host_target)
     # Use the provided time or if no time has been provided use the teh most recent recovery point
     if time_restore:
         time_ms = database.epoch_time(time_restore, rubrik.timezone)
