@@ -45,6 +45,9 @@ rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore 
 --db_file_name_convert '/u02/oradata/ora1db/','/u02/oradata/oracln/'
 --control_files '/u02/oradata/oracln/control01.ctl','/u02/oradata/oracln/control02.ctl'
 --log_file_name_convert '/u02/oradata/ora1db/','u02/oradata/oracln/'
+--audit_file_dest '/u01/app/oracle/admin/clonedb/adump'
+--core_dump_dest '/u01/app/oracle/admin/clonedb/cdump'
+
 \b
 Example Configuration File:
 ### The following line is required:
