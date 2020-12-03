@@ -116,9 +116,11 @@ Usage: rubrik_oracle_backup_mount [OPTIONS]
       This will mount the requested Rubrik Oracle backup set on the provided
       path.
 
-      The source database is specified in a host:db format. The mount path is required. If the restore time is not
-      provided the most recent recoverable time will be used. The host for the mount can be specified if it is not it
-      will be mounted on the source host. If the source database is on a RAC cluster the target must be a RAC cluster.
+      The source database is specified in a host:db format. The mount path is required. If the restore time is not 
+      provided the most recent recoverable time will be used. The host for the mount can be specified if it is not it 
+      will be mounted on the source host. On Rubrik CDM versions prior to 5.2.1, the source database is on a RAC cluster 
+      the target must be a RAC cluster. On Rubrik CDM versions 5.2.1 and higher, if the source database is on RAC or 
+      single instance the target can be RAC or a single instance host. 
 
       Returns:
           live_mount_info (dict): The information about the requested files only mount returned from the Rubrik CDM.
