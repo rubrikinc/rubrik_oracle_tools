@@ -22,10 +22,13 @@ import configparser
 @click.option('--control_files', type=str, help='Locations for control files. Using full paths in single quotes separated by commas')
 @click.option('--db_file_name_convert', type=str, help='Remap the datafile locations. Using full paths in single quotes separated by commas in pairs of \'from location\',\'to location\'')
 @click.option('--log_file_name_convert', type=str, help='Remap the redo log locations. Using full paths in single quotes separated by commas in pairs of \'from location\',\'to location\'')
+@click.option('--audit_file_dest', type=str, help='Set the path for the audit files. This path must exist on the target host')
+@click.option('--core_dump_dest', type=str, help='Set the path for the core dump files. This path must exist on the target host')
 @click.option('--log_path', '-l', type=str, help='Log directory, if not specified the mount_path with be used.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
 def cli(source_host_db, mount_path, new_oracle_name, configuration_file, time_restore, oracle_home, no_spfile,
-        no_file_name_check, refresh_db, control_files, db_file_name_convert, log_file_name_convert, log_path, debug_level):
+        no_file_name_check, refresh_db, control_files, db_file_name_convert, log_file_name_convert, audit_file_dest,
+        core_dump_dest,  log_path, debug_level):
     """
     This will use the Rubrik RMAN backups to do a duplicate (or refresh) of an Oracle Database.
 
@@ -64,6 +67,10 @@ Example Configuration File:
 # db_file_name_convert = '/u02/oradata/ora1db/','/u02/oradata/clonedb/'
 ### Remap the redo log locations
 # log_file_name_convert = '/u02/oradata/ora1db/','u02/oradata/clonedb/'
+### Set the audit file destination path
+# audit_file_dest = '/u01/app/oracle/admin/clonedb/adump'
+### Set the core dump destination path
+# core_dump_dest = '/u01/app/oracle/admin/clonedb/cdump'
 ### Directory where logs will be created. If not provided not logs will be created
 # log_path = /home/oracle/clone_logs
 \b
@@ -102,6 +109,10 @@ rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore 
             log_path = configuration['parameters']['log_path']
         if 'time_restore' in configuration['parameters'].keys():
             time_restore = configuration['parameters']['time_restore']
+        if 'audit_file_dest' in configuration['parameters'].keys():
+            audit_file_dest = configuration['parameters']['audit_file_dest']
+        if 'core_dump_dest' in configuration['parameters'].keys():
+            core_dump_dest = configuration['parameters']['core_dump_dest']
         logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
 
     # Set up the file logging
@@ -213,7 +224,10 @@ rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore 
         duplicate_commands = duplicate_commands + "set  db_file_name_convert = {} ".format(db_file_name_convert)
     if log_file_name_convert:
         duplicate_commands = duplicate_commands + "set  log_file_name_convert = {} ".format(log_file_name_convert)
-
+    if audit_file_dest:
+        duplicate_commands = duplicate_commands + "set  audit_file_dest = {} ".format(audit_file_dest)
+    if core_dump_dest:
+        duplicate_commands = duplicate_commands + "set  core_dump_dest = {} ".format(core_dump_dest)
     duplicate_commands = duplicate_commands + "BACKUP LOCATION '{}' ".format(mount_path)
     if no_file_name_check:
         duplicate_commands = duplicate_commands + "NOFILENAMECHECK;"
