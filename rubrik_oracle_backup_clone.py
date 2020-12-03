@@ -100,6 +100,8 @@ rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore 
             log_file_name_convert = configuration['parameters']['log_file_name_convert']
         if 'log_path' in configuration['parameters'].keys():
             log_path = configuration['parameters']['log_path']
+        if 'time_restore' in configuration['parameters'].keys():
+            time_restore = configuration['parameters']['time_restore']
         logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
 
     # Set up the file logging
