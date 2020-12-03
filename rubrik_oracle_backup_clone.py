@@ -16,6 +16,7 @@ import configparser
 @click.option('--configuration_file', '-f', type=str, help='Oracle duplicate configuration file, can be used for all optional parameters. Overrides any set as script options')
 @click.option('--time_restore', '-t', type=str, help='The point in time for the database clone in  iso 8601 format (2019-04-30T18:23:21)')
 @click.option('--oracle_home', '-o', type=str, help='ORACLE_HOME path for this database clone')
+@click.option('--parallelism', '-p', default=4, type=str, help='The degree of parallelism to use for the RMAN duplicate')
 @click.option('--no_spfile', is_flag=True, help='Restore SPFILE and replace instance specific parameters with new DB name')
 @click.option('--no_file_name_check', is_flag=True, help='Do not check for existing files and overwrite existing files. Potentially destructive use with caution')
 @click.option('--refresh_db', is_flag=True, help='Refresh and existing database. Overwriting exiting database. Requires no_file_name_check.')
@@ -26,9 +27,9 @@ import configparser
 @click.option('--core_dump_dest', type=str, help='Set the path for the core dump files. This path must exist on the target host')
 @click.option('--log_path', '-l', type=str, help='Log directory, if not specified the mount_path with be used.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
-def cli(source_host_db, mount_path, new_oracle_name, configuration_file, time_restore, oracle_home, no_spfile,
-        no_file_name_check, refresh_db, control_files, db_file_name_convert, log_file_name_convert, audit_file_dest,
-        core_dump_dest,  log_path, debug_level):
+def cli(source_host_db, mount_path, new_oracle_name, configuration_file, time_restore, oracle_home, parallelism,
+        no_spfile, no_file_name_check, refresh_db, control_files, db_file_name_convert, log_file_name_convert,
+        audit_file_dest, core_dump_dest,  log_path, debug_level):
     """
     This will use the Rubrik RMAN backups to do a duplicate (or refresh) of an Oracle Database.
 
@@ -40,7 +41,7 @@ def cli(source_host_db, mount_path, new_oracle_name, configuration_file, time_re
     not specified, no log will be created.
 \b
 Example:
-rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n oracln -t 2020-11-06T00:06:00
+rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n oracln -t 2020-11-06T00:06:00 -p 8
 -l /home/oracle/clone_logs --no_file_name_check --refresh_db
 --db_file_name_convert '/u02/oradata/ora1db/','/u02/oradata/oracln/'
 --control_files '/u02/oradata/oracln/control01.ctl','/u02/oradata/oracln/control02.ctl'
@@ -53,6 +54,8 @@ Example Configuration File:
 ### The following line is required:
 [parameters]
 ### All parameters are optional. Command line flags are boolean (true/false)
+### The degree of parallelism to use for the RMAN duplicate (default is 4)
+# parallelism = 4
 ### Do not restore the spfile renaming the parameters with the new db name.
 # no_spfile = true
 ### Pint in time for duplicate
@@ -96,6 +99,8 @@ rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore 
     if configuration_file:
         configuration = configparser.ConfigParser()
         configuration.read(configuration_file)
+        if 'parallelism' in configuration['parameters'].keys():
+            parallelism = configuration['parameters']['parallelism']
         if 'no_spfile' in configuration['parameters'].keys():
             no_spfile = configuration['parameters'].getboolean('spfile')
         if 'no_file_name_check' in configuration['parameters'].keys():
@@ -215,7 +220,11 @@ rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore 
         raise RubrikOracleBackupMountCloneError("DB Instance check failed. Instance name is not {}. Aborting clone".format(new_oracle_name))
 
     logger.warning("Beginning duplicate of {} to {} on host {}.".format(source_host_db[1], new_oracle_name, source_host_db[0]))
-    duplicate_commands = "duplicate database to {} ".format(new_oracle_name)
+    duplicate_commands = "run { "
+    for x in range(int(parallelism)):
+        channel = x + 1
+        duplicate_commands = duplicate_commands + "allocate auxiliary channel aux{} device type disk; ".format(channel)
+    duplicate_commands = duplicate_commands + "duplicate database to {} ".format(new_oracle_name)
     if time_restore:
         time_restore = time_restore.replace("T", "")
         duplicate_commands = duplicate_commands + """until time "TO_DATE('{}','YYYY-MM-DD HH24:MI:SS')"  """.format(time_restore)
@@ -233,9 +242,9 @@ rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore 
         duplicate_commands = duplicate_commands + "set  core_dump_dest = {} ".format(core_dump_dest)
     duplicate_commands = duplicate_commands + "BACKUP LOCATION '{}' ".format(mount_path)
     if no_file_name_check:
-        duplicate_commands = duplicate_commands + "NOFILENAMECHECK;"
+        duplicate_commands = duplicate_commands + "NOFILENAMECHECK; }"
     else:
-        duplicate_commands = duplicate_commands + ";"
+        duplicate_commands = duplicate_commands + "; }"
 
     logger.debug("Duplicate script: "
                  "{}".format(duplicate_commands))
