@@ -391,7 +391,7 @@ Options:
 #### rubrik_oracle_backup_clone
 ```
  rubrik_oracle_backup_clone.py --help
-Usage: rubrik_oracle_backup_clone.py [OPTIONS]
+Usage: rubrik_oracle_backup_clone [OPTIONS]
 
       This will use the Rubrik RMAN backups to do a duplicate (or refresh)
       of an Oracle Database.
@@ -401,14 +401,16 @@ Usage: rubrik_oracle_backup_clone.py [OPTIONS]
       provided in a configuration file. All the flag options must be entered as true false in the configuration file.
       If the Oracle Home is not specified the ORACLE_HOME path from the source database will be used. If a log directory is
       not specified, no log will be created.
-  
+
   Example:
   rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n oracln -t 2020-11-06T00:06:00
   -l /home/oracle/clone_logs --no_file_name_check --refresh_db
   --db_file_name_convert '/u02/oradata/ora1db/','/u02/oradata/oracln/'
   --control_files '/u02/oradata/oracln/control01.ctl','/u02/oradata/oracln/control02.ctl'
   --log_file_name_convert '/u02/oradata/ora1db/','u02/oradata/oracln/'
-  
+  --audit_file_dest '/u01/app/oracle/admin/clonedb/adump'
+  --core_dump_dest '/u01/app/oracle/admin/clonedb/cdump'
+
   Example Configuration File:
   ### The following line is required:
   [parameters]
@@ -430,9 +432,13 @@ Usage: rubrik_oracle_backup_clone.py [OPTIONS]
   # db_file_name_convert = '/u02/oradata/ora1db/','/u02/oradata/clonedb/'
   ### Remap the redo log locations
   # log_file_name_convert = '/u02/oradata/ora1db/','u02/oradata/clonedb/'
+  ### Set the audit file destination path
+  # audit_file_dest = '/u01/app/oracle/admin/clonedb/adump'
+  ### Set the core dump destination path
+  # core_dump_dest = '/u01/app/oracle/admin/clonedb/cdump'
   ### Directory where logs will be created. If not provided not logs will be created
   # log_path = /home/oracle/clone_logs
-  
+
   Example:
   rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n oracln -f /home/oracle/clone_config.txt
 
@@ -477,6 +483,12 @@ Options:
   --log_file_name_convert TEXT   Remap the redo log locations. Using full
                                  paths in single quotes separated by commas in
                                  pairs of 'from location','to location'
+
+  --audit_file_dest TEXT         Set the path for the audit files. This path
+                                 must exist on the target host
+
+  --core_dump_dest TEXT          Set the path for the core dump files. This
+                                 path must exist on the target host
 
   -l, --log_path TEXT            Log directory, if not specified the
                                  mount_path with be used.
