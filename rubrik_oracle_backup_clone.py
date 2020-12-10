@@ -35,19 +35,20 @@ def cli(source_host_db, mount_path, new_oracle_name, configuration_file, time_re
 
 \b
     The source database is specified in a host:db format. The backup mount path and the new Oracle DB name are required.
-    If the restore time is not provided the most recent recoverable time will be used. All the optional parameters can be
-    provided in a configuration file. All the flag options must be entered as true false in the configuration file.
-    If the Oracle Home is not specified the ORACLE_HOME path from the source database will be used. If a log directory is
-    not specified, no log will be created.
+    If the restore time is not provided the most recent recoverable time will be used. Command line Oracle path
+    parameters must be enclosed in both double quotes and each path within enclosed with single quotes. All the optional
+    parameters can be provided in a configuration file. All the flag options must be entered as true false in the
+    configuration file. If the Oracle Home is not specified the ORACLE_HOME path from the source database will be used.
+    If a log directory is not specified, no log will be created.
 \b
 Example:
-rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n oracln -t 2020-11-06T00:06:00 -p 8
+rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n oracln -t 2020-11-06T00:06:00 -p 8
 -l /home/oracle/clone_logs --no_file_name_check --refresh_db
---db_file_name_convert '/u02/oradata/ora1db/','/u02/oradata/oracln/'
---control_files '/u02/oradata/oracln/control01.ctl','/u02/oradata/oracln/control02.ctl'
---log_file_name_convert '/u02/oradata/ora1db/','u02/oradata/oracln/'
---audit_file_dest '/u01/app/oracle/admin/clonedb/adump'
---core_dump_dest '/u01/app/oracle/admin/clonedb/cdump'
+--db_file_name_convert "'/u02/oradata/ora1db/','/u02/oradata/oracln/'"
+--control_files "'/u02/oradata/oracln/control01.ctl','/u02/oradata/oracln/control02.ctl'"
+--log_file_name_convert "'/u02/oradata/ora1db/','u02/oradata/oracln/'"
+--audit_file_dest "'/u01/app/oracle/admin/clonedb/adump'"
+--core_dump_dest "'/u01/app/oracle/admin/clonedb/cdump'"
 
 \b
 Example Configuration File:
@@ -81,7 +82,7 @@ Example Configuration File:
 # log_path = /home/oracle/clone_logs
 \b
 Example:
-rubrik_oracle_backup_clone.py -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n oracln -f /home/oracle/clone_config.txt
+rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n oracln -f /home/oracle/clone_config.txt
 
     """
     numeric_level = getattr(logging, debug_level.upper(), None)
