@@ -14,6 +14,7 @@ import re
 import glob
 import inspect
 from yaspin import yaspin
+from yaspin.spinners import Spinners
 import urllib3
 import rubrik_cdm
 
@@ -346,7 +347,7 @@ class RubrikRbsOracleDatabase:
             oracle_request = self.rubrik.connection.get('internal', '/oracle/request/{}'.format(requests_id), timeout=self.cdm_timeout)
             if oracle_request['status'] in terminal_states:
                 break
-            with yaspin(text='Request status: {}'.format(oracle_request['status'])):
+            with yaspin(Spinners.line, text='Request status: {}'.format(oracle_request['status'])):
                 time.sleep(10)
         if oracle_request['status'] not in terminal_states:
             raise RbsOracleCommonError(
