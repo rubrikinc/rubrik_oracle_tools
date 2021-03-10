@@ -257,6 +257,25 @@ class RubrikRbsOracleDatabase:
         live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         return live_mount_info
 
+    def oracle_validate(self, host_id, time_ms):
+        """
+        Validates  Rubrik Database backup on the requested host or cluster or source host.
+
+        Args:
+            self (object): Database Object
+            host_id (str):  The Rubrik host or cluster for the mount.
+            time_ms  (str):  The point in time of the backup to mount.
+
+        Returns:
+            oracle_validate_info (dict): The information about the requested database validate returned from the Rubrik CDM.
+        """
+        payload = {
+            "recoveryPoint": {"timestampMs": time_ms},
+            "targetOracleHostOrRacId": host_id
+        }
+        oracle_validate_info = self.rubrik.connection.post('v1', '/oracle/db/{}/validate'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
+        return oracle_validate_info
+        
     def get_host_id(self, primary_cluster_id, hostname):
         """
         Gets the Oracle database host using the hostname.
