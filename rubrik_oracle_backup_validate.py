@@ -10,9 +10,9 @@ import pytz
 @click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
 @click.option('--time_restore', '-t', type=str, help='Point in time to validate the DB, format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
 @click.option('--host_target', '-h', type=str, help='Target Host for DB Validation ')
-@click.option('--no_wait', is_flag=True, help='Queue DB Validate and exit.')
+@click.option('--wait', is_flag=True, help='Wait for the DB Validate to complete. Will timeout after 2 hours.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, time_restore, host_target, no_wait, debug_level):
+def cli(source_host_db, time_restore, host_target, wait, debug_level):
     """
     This will Validate the requested Rubrik Oracle backup set on source or target host or RAC cluster
 
@@ -41,8 +41,8 @@ def cli(source_host_db, time_restore, host_target, no_wait, debug_level):
     if int(cdm_version[0]) < 6 and int(cdm_version[1]) < 3:
         logger.info("Cluster version {} is pre 5.3. Oracle Database validation is not available".format(cdm_version))
         raise RubrikOracleBackupValidateError(
-            "Oracle Database Validation is not available in CDM version {}. Please upgrade to 5.3+ for this functionality".format(
-                cdm_version))
+            "Oracle Database Validation is not available in CDM version {}. Please upgrade to version 5.3.0 or greater for this functionality".format(
+                rubrik.version))
     else:
         logger.debug("Cluster version {}.{}.{} is post 5.3".format(cdm_version[0], cdm_version[1], cdm_version[2]))
 
@@ -67,8 +67,8 @@ def cli(source_host_db, time_restore, host_target, no_wait, debug_level):
     start_time = utc.localize(datetime.datetime.fromisoformat(oracle_validate_info['startTime'][:-1])).astimezone(cluster_timezone)
     fmt = '%Y-%m-%d %H:%M:%S %Z'
     logger.info("Validate job requested at {}.".format(start_time.strftime(fmt)))
-    logger.info("No wait flag is set to {}.".format(no_wait))
-    if no_wait:
+    logger.info("Wait flag is set to {}.".format(wait))
+    if not wait:
         logger.warning("Validate job id: {} Job status: {}.".format(oracle_validate_info['id'], oracle_validate_info['status']))
         return oracle_validate_info
     else:
