@@ -504,5 +504,37 @@ Options:
 
   --help                         Show this message and exit.
 
-
 ```
+
+#### rubrik_oracle_backup_validate
+```
+
+rubrik_oracle_backup_validate.py" --help
+Usage: rubrik_oracle_backup_validate.py [OPTIONS]
+
+      This will Validate the requested Rubrik Oracle backup set on source or
+      target host or RAC cluster
+
+      The source database is specified in a host:db format.  If the restore time is not
+      provided the most recent recoverable time will be used. The host for the validation can be specified if it is not it
+      will be validate on the source host.
+
+      Returns:
+          oracle_validate_info (dict): The information about the requested database validate returned from the Rubrik CDM.
+
+
+Options:
+  -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
+                             [required]
+
+  -t, --time_restore TEXT    Point in time to validate the DB, format is
+                             YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
+
+  -h, --host_target TEXT     Target Host for DB Validation
+  --wait                     Wait for the DB Validate to complete. Will
+                             timeout after 2 hours.
+
+  -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
+                             CRITICAL.
+
+  --help                     Show this message and exit.

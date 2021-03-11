@@ -6,7 +6,8 @@ setup(
     py_modules=['rbs_oracle_common', 'rubrik_oracle_backup_info', 'rubrik_oracle_backup_mount',
                 'rubrik_oracle_unmount', 'rubrik_oracle_db_mount', 'rubrik_oracle_snapshot',
                 'rubrik_oracle_log_backup', 'rubrik_oracle_db_mount_clone', 'rubrik_oracle_clone_unmount',
-                'rubrik_oracle_backup_mount_clone', 'rubrik_oracle_mount_info', 'rubrik_oracle_backup_clone'],
+                'rubrik_oracle_backup_mount_clone', 'rubrik_oracle_mount_info', 'rubrik_oracle_backup_clone',
+                'rubrik_oracle_backup_validate'],
     install_requires=[
         'requests >= 2.18.4, != 2.22.0',
         'rubrik_cdm',
@@ -28,5 +29,6 @@ setup(
         rubrik_oracle_backup_mount_clone=rubrik_oracle_backup_mount_clone:cli
         rubrik_oracle_mount_info=rubrik_oracle_mount_info:cli
         rubrik_oracle_backup_clone=rubrik_oracle_backup_clone:cli
+        rubrik_oracle_backup_validate=rubrik_oracle_backup_validate:cli
     '''
 )
