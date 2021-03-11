@@ -132,7 +132,7 @@ class RubrikRbsOracleDatabase:
             return oracle_id
         else:
             raise RbsOracleCommonError("No ID found for a database with name {} running on host {}.".format(self.database_name, self.database_host))
-  
+
     def get_oracle_db_info(self):
         """
         Gets the information about a Rubrik Oracle database object using the Rubrik Oracle database id.
@@ -275,7 +275,7 @@ class RubrikRbsOracleDatabase:
         }
         oracle_validate_info = self.rubrik.connection.post('v1', '/oracle/db/{}/validate'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         return oracle_validate_info
-        
+
     def get_host_id(self, primary_cluster_id, hostname):
         """
         Gets the Oracle database host using the hostname.
@@ -391,16 +391,16 @@ class RubrikRbsOracleDatabase:
         self.logger.info(self.sqlplus_sysdba(oracle_home, 'create pfile from spfile;'))
         # Rename the init file
         os.rename("{}/dbs/init{}.ora".format(oracle_home, oracle_sid),
-                  "{}/dbs/init{}.ora".format(oracle_home, new_oracle_name))
+                "{}/dbs/init{}.ora".format(oracle_home, new_oracle_name))
         # Rename the password file if present
         if os.path.exists("{}/dbs/orapw{}".format(oracle_home, oracle_sid)):
             os.rename("{}/dbs/orapw{}".format(oracle_home, oracle_sid),
-                      "{}/dbs/orapw{}".format(oracle_home, new_oracle_name))
+                    "{}/dbs/orapw{}".format(oracle_home, new_oracle_name))
         # Rename the control files
         os.rename("{}/dbs/{}_control1".format(oracle_home, oracle_sid),
-                  "{}/dbs/{}_control1".format(oracle_home, new_oracle_name))
+                "{}/dbs/{}_control1".format(oracle_home, new_oracle_name))
         os.rename("{}/dbs/{}_control2".format(oracle_home, oracle_sid),
-                  "{}/dbs/{}_control2".format(oracle_home, new_oracle_name))
+                "{}/dbs/{}_control2".format(oracle_home, new_oracle_name))
         # Change the database name in all the parameters in the init file
         status = subprocess.check_output(
             "sed -i 's/{0}/{1}/g' {2}/dbs/init{1}.ora".format(oracle_sid, new_oracle_name, oracle_home), shell=True)
@@ -456,7 +456,7 @@ class RubrikRbsOracleDatabase:
         """
         Finds the latest control file backup recursively in a path.
 
-       Args:
+        Args:
             path (str): The path in which to search for a control file.
         Returns:
             control file backup (str): The path of the latest control file backup
