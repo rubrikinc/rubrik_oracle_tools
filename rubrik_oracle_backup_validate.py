@@ -36,22 +36,29 @@ def cli(source_host_db, time_restore, host_target, no_wait, debug_level):
     logger.addHandler(ch)
 
     rubrik = rbs_oracle_common.RubrikConnection()
+    # The CDM version must be 5.3+ or there is no validate available
+    cdm_version = rubrik.version.split("-")[0].split(".")
+    if int(cdm_version[0]) < 6 and int(cdm_version[1]) < 3:
+        logger.info("Cluster version {} is pre 5.3. Oracle Database validation is not available".format(cdm_version))
+        raise RubrikOracleBackupValidateError(
+            "Oracle Database Validation is not available in CDM version {}. Please upgrade to 5.3+ for this functionality".format(
+                cdm_version))
+    else:
+        logger.debug("Cluster version {}.{}.{} is post 5.3".format(cdm_version[0], cdm_version[1], cdm_version[2]))
+
     source_host_db = source_host_db.split(":")
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
     oracle_db_info = database.get_oracle_db_info()
     logger.debug(oracle_db_info)
     if not host_target:
         host_target = source_host_db[0]
-    else:
-        target_id = database.get_target_id(rubrik.cluster_id, host_target)
-    # Use the provided time or if no time has been provided use the teh most recent recovery point
+    target_id = database.get_target_id(rubrik.cluster_id, host_target)
     if time_restore:
         time_ms = database.epoch_time(time_restore, rubrik.timezone)
         logger.warning("Validating backup pieces for a point in time restore to time: {}.". format(time_restore))
     else:
         logger.warning("Using most recent recovery point for Validation.")
         time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
-        # Use the provided time or if no time has been provided use the teh most recent recovery point
 
     logger.warning("Starting the Validation of the requested {} backup pieces on {}.".format(source_host_db[1], host_target))
     oracle_validate_info = database.oracle_validate(target_id, time_ms)
@@ -65,10 +72,10 @@ def cli(source_host_db, time_restore, host_target, no_wait, debug_level):
         logger.warning("Validate job id: {} Job status: {}.".format(oracle_validate_info['id'], oracle_validate_info['status']))
         return oracle_validate_info
     else:
-        oracle_validate_info = database.async_requests_wait(oracle_validate_info['id'], 12)
+        oracle_validate_info = database.async_requests_wait(oracle_validate_info['id'], 120)
         logger.warning("Async request completed with status: {}".format(oracle_validate_info['status']))
         if oracle_validate_info['status'] != "SUCCEEDED":
-            raise RubrikOracleBackupMountError(
+            raise RubrikOracleBackupValidateError(
                 "Database validate did not complete successfully. Mount ended with status {}".format(
                     oracle_validate_info['status']))
         logger.warning("Database validate job completed.")
