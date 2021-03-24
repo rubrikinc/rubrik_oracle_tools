@@ -10,7 +10,7 @@ import pytz
 @click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
 @click.option('--host_target', '-h', required=True, type=str, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
 @click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, iso format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
-@click.option('--no_wait', is_flag=False, help='Queue Live Mount and exit.')
+@click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
 def cli(source_host_db, host_target, time_restore, no_wait, debug_level):
     """Live mount a Rubrik Oracle Backup.
