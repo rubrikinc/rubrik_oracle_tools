@@ -275,7 +275,7 @@ class RubrikRbsOracleDatabase:
                 "targetMountPath": mount_path,
                 "shouldMountFilesOnly": files_only
             }
-        print(payload)
+
         live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         return live_mount_info
 
