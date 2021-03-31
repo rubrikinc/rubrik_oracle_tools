@@ -4,15 +4,18 @@ import logging
 import sys
 import datetime
 import pytz
+import base64
 
 
 @click.command()
 @click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
 @click.option('--host_target', '-h', required=True, type=str, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
 @click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, iso format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
-@click.option('--no_wait', is_flag=False, help='Queue Live Mount and exit.')
+@click.option('--pfile', '-p', type=str, help='Custom Pfile path (on target host)')
+@click.option('--aco_file', '-a', type=str, help='ACO file path for parameter changes')
+@click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, host_target, time_restore, no_wait, debug_level):
+def cli(source_host_db, host_target, time_restore, pfile, aco_file, no_wait, debug_level):
     """Live mount a Rubrik Oracle Backup.
 
 \b
@@ -50,8 +53,16 @@ def cli(source_host_db, host_target, time_restore, no_wait, debug_level):
     else:
         logger.warning("Using most recent recovery point for mount.")
         time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
+    # Added new 3.5 features
+    if aco_file and pfile:
+        raise RubrikOracleDBMountError("Using both a custom pfile and an aco file is not supported. Use one or the other")
+    if aco_file:
+        raw_file = open(aco_file, "r").read()
+        base64_file = base64.b64encode(raw_file)
+        logger.warning("Using ACO file: {}".format(aco_file))
+
     logger.warning("Starting Live Mount of {} on {}.".format(source_host_db[1], host_target))
-    live_mount_info = database.live_mount(host_id, time_ms)
+    live_mount_info = database.live_mount(host_id, time_ms, False, None, pfile, aco_file)
     # Set the time format for the printed result
     cluster_timezone = pytz.timezone(rubrik.timezone)
     utc = pytz.utc

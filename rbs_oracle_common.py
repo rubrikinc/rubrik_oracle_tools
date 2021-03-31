@@ -234,7 +234,7 @@ class RubrikRbsOracleDatabase:
         return sla_id
 
     # New methods
-    def live_mount(self, host_id, time_ms, files_only=False, mount_path=None):
+    def live_mount(self, host_id, time_ms, files_only=False, mount_path=None, pfile=None, aco_base64=None):
         """
         Live mounts a Rubrik Database backup on the requested host or cluster.
 
@@ -244,16 +244,38 @@ class RubrikRbsOracleDatabase:
             time_ms  (str):  The point in time of the backup to mount.
             files_only (bool):  Mount the backup pieces only.
             mount_path (str):  The path to mount the files only restore. (Required if files_only is True).
+            pfile (str): The path to the custom pfile to use on the live mount host (mutually exclusive with ACO file).
+            aco_base64 (str): The base 64 encoded ACO file. (mutually exclusive with custom pfile).
 
         Returns:
             live_mount_info (dict): The information about the requested live mount returned from the Rubrik CDM.
         """
-        payload = {
-            "recoveryPoint": {"timestampMs": time_ms},
-            "targetOracleHostOrRacId": host_id,
-            "targetMountPath": mount_path,
-            "shouldMountFilesOnly": files_only
-        }
+        if pfile and aco_base64:
+            raise RbsOracleCommonError("Use either a custom pfile or the aco file for a live mount. Not both.")
+        elif pfile:
+            payload = {
+                "recoveryPoint": {"timestampMs": time_ms},
+                "targetOracleHostOrRacId": host_id,
+                "targetMountPath": mount_path,
+                "shouldMountFilesOnly": files_only,
+                "customPfilePath": pfile
+            }
+        elif aco_base64:
+            payload = {
+                "recoveryPoint": {"timestampMs": time_ms},
+                "targetOracleHostOrRacId": host_id,
+                "targetMountPath": mount_path,
+                "shouldMountFilesOnly": files_only,
+                "advancedRecoveryConfigBase64": aco_base64
+            }
+        else:
+            payload = {
+                "recoveryPoint": {"timestampMs": time_ms},
+                "targetOracleHostOrRacId": host_id,
+                "targetMountPath": mount_path,
+                "shouldMountFilesOnly": files_only
+            }
+        print(payload)
         live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         return live_mount_info
 
