@@ -53,17 +53,10 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file, no_wait, deb
     else:
         logger.warning("Using most recent recovery point for mount.")
         time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
-    # Added new 3.5 features
     if aco_file and pfile:
         raise RubrikOracleDBMountError("Using both a custom pfile and an aco file is not supported. Use one or the other")
-    base64_file = None
-    if aco_file:
-        raw_file = open(aco_file, "rb").read()
-        base64_file = base64.b64encode(raw_file).decode('ascii')
-        logger.warning("Using ACO file: {}".format(aco_file))
-
     logger.warning("Starting Live Mount of {} on {}.".format(source_host_db[1], host_target))
-    live_mount_info = database.live_mount(host_id, time_ms, False, None, pfile, base64_file)
+    live_mount_info = database.live_mount(host_id, time_ms, False, None, pfile, aco_file)
     # Set the time format for the printed result
     cluster_timezone = pytz.timezone(rubrik.timezone)
     utc = pytz.utc
