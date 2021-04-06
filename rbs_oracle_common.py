@@ -246,14 +246,12 @@ class RubrikRbsOracleDatabase:
             files_only (bool):  Mount the backup pieces only.
             mount_path (str):  The path to mount the files only restore. (Required if files_only is True).
             pfile (str): The path to the custom pfile to use on the live mount host (mutually exclusive with ACO file).
-            aco_file (str or bytes): The ACO file. (mutually exclusive with custom pfile).
+            aco_file (str or bytes): The ACO file read into the variable.
 
         Returns:
             live_mount_info (dict): The information about the requested live mount returned from the Rubrik CDM.
         """
-        if pfile and aco_file:
-            raise RbsOracleCommonError("Use either a custom pfile or the aco file for a live mount. Not both.")
-        elif pfile:
+        if pfile:
             payload = {
                 "recoveryPoint": {"timestampMs": time_ms},
                 "targetOracleHostOrRacId": host_id,
