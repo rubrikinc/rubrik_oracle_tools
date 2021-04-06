@@ -53,14 +53,13 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, no_wait
     else:
         logger.warning("Using most recent recovery point for mount.")
         time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
+    aco_file = None
     if aco_file_path and pfile:
         raise RubrikOracleDBMountError("Using both a custom pfile and an aco file is not supported. Use one or the other")
     elif aco_file_path:
-        pfile = None
         logger.warning("Using ACO File: {}".format(aco_file_path))
         aco_file = open(aco_file_path, "r").read()
     elif pfile:
-        aco_file_path = none
         logger.warning("Using custom pfile File: {}.".format(pfile))
     logger.warning("Starting Live Mount of {} on {}.".format(source_host_db[1], host_target))
     live_mount_info = database.live_mount(host_id, time_ms, False, None, pfile, aco_file)
