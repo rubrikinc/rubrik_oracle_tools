@@ -118,7 +118,7 @@ class RubrikRbsOracleDatabase:
             for db in oracle_dbs['data']:
                 if db['name'] == self.database_name:
                     if 'standaloneHostName' in db.keys():
-                        for x in range(len(self.database_host.split('.'))):
+                        for x in range(min(len(self.database_host.split('.')), len(db['standaloneHostName'].split('.')))):
                             if self.database_host.split('.')[x] != db['standaloneHostName'].split('.')[x]:
                                 oracle_id = None
                                 break
@@ -129,7 +129,7 @@ class RubrikRbsOracleDatabase:
                             oracle_id = db['id']
                             break
                         for instance in db['instances']:
-                            for x in range(len(self.database_host.split('.'))):
+                            for x in range(min(len(self.database_host.split('.')), len(self.database_host.split('.')))):
                                 if instance['hostName'].split('.')[x] != self.database_host.split('.')[x]:
                                     oracle_id = None
                                     break
