@@ -287,7 +287,6 @@ class RubrikRbsOracleDatabase:
         self.logger.debug("Payload: {}".format(payload))
         live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         return live_mount_info
-        return
 
     def oracle_validate(self, host_id, time_ms):
         """
@@ -394,6 +393,7 @@ class RubrikRbsOracleDatabase:
     def async_requests_wait(self, requests_id, timeout):
         timeout_start = time.time()
         terminal_states = ['FAILED', 'CANCELED', 'SUCCEEDED']
+        oracle_request = None
         while time.time() < timeout_start + (timeout * 60):
             oracle_request = self.rubrik.connection.get('internal', '/oracle/request/{}'.format(requests_id), timeout=self.cdm_timeout)
             if oracle_request['status'] in terminal_states:
@@ -572,6 +572,7 @@ class RubrikRbsOracleDatabase:
             raise RbsOracleCommonError("Trying to base64 encode a file of the wrong type: {}".format(type(raw_file)))
         base64_file = base64.b64encode(raw_file).decode('ascii')
         return base64_file
+
 
 class RubrikRbsOracleMount(RubrikRbsOracleDatabase):
     """
