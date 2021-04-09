@@ -110,7 +110,7 @@ class RubrikRbsOracleDatabase:
         # we will compare the hostname without the domain.
         if self.is_ip(self.database_host):
             raise RbsOracleCommonError("A hostname is required for the Oracle host, do not use an IP address.")
-        oracle_id = ''
+        oracle_id = None
         if oracle_dbs['total'] == 0:
             raise RbsOracleCommonError(
                 "The {} object '{}' was not found on the Rubrik cluster.".format(self.database_name, self.database_host))
@@ -118,16 +118,25 @@ class RubrikRbsOracleDatabase:
             for db in oracle_dbs['data']:
                 if db['name'] == self.database_name:
                     if 'standaloneHostName' in db.keys():
-                        if self.database_host == db['standaloneHostName'].split('.')[0]:
-                            oracle_id = db['id']
-                            break
+                        for x in range(len(self.database_host.split('.'))):
+                            if self.database_host.split('.')[x] != db['standaloneHostName'].split('.')[x]:
+                                oracle_id = None
+                                break
+                            else:
+                                oracle_id = db['id']
                     elif 'racName' in db.keys():
                         if self.database_host == db['racName']:
                             oracle_id = db['id']
                             break
-                        if any(instance['hostName'] == self.database_host for instance in db['instances']):
-                            oracle_id = db['id']
-                            break
+                        for instance in db['instances']:
+                            for x in range(len(self.database_host.split('.'))):
+                                if instance['hostName'].split('.')[x] != self.database_host.split('.')[x]:
+                                    oracle_id = None
+                                    break
+                                else:
+                                    oracle_id = db['id']
+                            if oracle_id:
+                                break
         if oracle_id:
             self.logger.debug("Found Database id: {} for Database: {} on host or cluster {}".format(oracle_id, self.database_name, self.database_host))
             return oracle_id
