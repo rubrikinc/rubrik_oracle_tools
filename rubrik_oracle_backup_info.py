@@ -75,7 +75,7 @@ def cli(source_host_db, debug_level):
                     db_element[4] = "None"
                 db_element[5] = db['numMissedSnapshot']
                 db_data.append(db_element)
-        db_data.sort(key = lambda x: x[0])
+        db_data.sort(key = lambda x: (x[0], x[1]))
         print("*" * 100)
         print(tabulate(db_data,headers=db_headers))
 
