@@ -11,9 +11,10 @@ import pytz
 @click.option('--mount_path', '-m', type=str, required=True, help='The path used to mount the backup files')
 @click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
 @click.option('--host_target', '-h', type=str, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
+@click.option('--timeout', type=int, help='API Timeout value in seconds. Default is 180 seconds')
 @click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, mount_path, time_restore, host_target, no_wait, debug_level):
+def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait, debug_level):
     """
     This will mount the requested Rubrik Oracle backup set on the provided path.
 
@@ -39,7 +40,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, no_wait, debug_le
 
     rubrik = rbs_oracle_common.RubrikConnection()
     source_host_db = source_host_db.split(":")
-    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
+    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0], timeout)
     oracle_db_info = database.get_oracle_db_info()
     logger.debug(oracle_db_info)
     if not host_target:
