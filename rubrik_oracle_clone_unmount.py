@@ -49,7 +49,7 @@ def cli(source_host_db, mounted_host, new_oracle_name, oracle_home, all_mounts, 
     utc = pytz.utc
     fmt = '%Y-%m-%d %H:%M:%S %Z'
     if not live_mount_ids:
-        raise RubrikOracleCloneUnmountError("No live mounts found for {} live mounted on {}. ".format(source_host_db[1], source_host_db[0]))
+        raise RubrikOracleCloneUnmountError("No live mounts found for {} live mounted on {}. ".format(source_host_db[1], mounted_host))
     elif len(live_mount_ids) == 0:
         raise RubrikOracleCloneUnmountError(
             "No live mounts found for {} live mounted on {}. ".format(source_host_db[1], source_host_db[0]))
