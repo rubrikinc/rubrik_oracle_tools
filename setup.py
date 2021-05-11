@@ -14,7 +14,8 @@ setup(
         'urllib3 <1.25, >=1.21.1',
         'Click',
         'pytz',
-        'yaspin'
+        'yaspin',
+        'tabulate'
     ],
     entry_points='''
         [console_scripts]
