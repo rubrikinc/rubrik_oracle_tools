@@ -225,7 +225,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n 
     for x in range(int(parallelism)):
         channel = x + 1
         duplicate_commands = duplicate_commands + "allocate auxiliary channel aux{} device type disk; ".format(channel)
-    duplicate_commands = duplicate_commands + "duplicate database to {} ".format(new_oracle_name)
+    duplicate_commands = duplicate_commands + "duplicate database to '{}' ".format(new_oracle_name)
     if time_restore:
         time_restore = time_restore.replace("T", "")
         duplicate_commands = duplicate_commands + """until time "TO_DATE('{}','YYYY-MM-DD HH24:MI:SS')"  """.format(time_restore)
