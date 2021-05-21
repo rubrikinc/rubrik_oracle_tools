@@ -118,25 +118,19 @@ class RubrikRbsOracleDatabase:
             for db in oracle_dbs['data']:
                 if db['name'] == self.database_name:
                     if 'standaloneHostName' in db.keys():
-                        for x in range(min(len(self.database_host.split('.')), len(db['standaloneHostName'].split('.')))):
-                            if self.database_host.split('.')[x] != db['standaloneHostName'].split('.')[x]:
-                                oracle_id = None
-                                break
-                            else:
+                        if self.match_hostname(self.database_host, db['standaloneHostName']):
                                 oracle_id = db['id']
+                                break
                     elif 'racName' in db.keys():
                         if self.database_host == db['racName']:
                             oracle_id = db['id']
                             break
                         for instance in db['instances']:
-                            for x in range(min(len(self.database_host.split('.')), len(self.database_host.split('.')))):
-                                if instance['hostName'].split('.')[x] != self.database_host.split('.')[x]:
-                                    oracle_id = None
-                                    break
-                                else:
-                                    oracle_id = db['id']
-                            if oracle_id:
+                            if self.match_hostname(self.database_host, instance['hostName']):
+                                oracle_id = db['id']
                                 break
+                        if oracle_id:
+                            break
         if oracle_id:
             self.logger.debug("Found Database id: {} for Database: {} on host or cluster {}".format(oracle_id, self.database_name, self.database_host))
             return oracle_id
@@ -482,6 +476,24 @@ class RubrikRbsOracleDatabase:
                 os.remove(file_path)
             except:
                 self.logger.warning("Error while deleting file: {}".format(file_path))
+
+    @staticmethod
+    def match_hostname(hostname1, hostname2):
+        """
+        Checks 2 hostnames for a match. Will match short name (no domain) to FQDNs.
+
+        Args:
+            hostname1: Hostname for comparison
+            hostname2: Hostname for comparison
+
+        Returns: True if matched
+
+        """
+        for x in range(min(len(hostname1.split('.')), len(hostname2.split('.')))):
+            if hostname1.split('.')[x] != hostname2.split('.')[x]:
+                return False
+        return True
+
 
     @staticmethod
     def get_latest_autobackup(path):
