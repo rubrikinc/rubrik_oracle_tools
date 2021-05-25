@@ -103,7 +103,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n 
         if 'parallelism' in configuration['parameters'].keys():
             parallelism = configuration['parameters']['parallelism']
         if 'no_spfile' in configuration['parameters'].keys():
-            no_spfile = configuration['parameters'].getboolean('spfile')
+            no_spfile = configuration['parameters'].getboolean('no_spfile')
         if 'no_file_name_check' in configuration['parameters'].keys():
             no_file_name_check = configuration['parameters'].getboolean('no_file_name_check')
         if 'refresh_db' in configuration['parameters'].keys():
