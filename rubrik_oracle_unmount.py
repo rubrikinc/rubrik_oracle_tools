@@ -14,9 +14,15 @@ import sys
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
 def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait,  debug_level):
     """
-    This will unmount a Rubrik live mount using the database name and the live mount host.
+    Unmount a Rubrik database or files live mount using the database name and the live mount host.
 
-\b
+    This will unmount a live mount of an Oracle database or a mount of the RMAN backup files. The source database is
+    specified in a host:db format. Note that is the original database not the object to be unmounted. The mounted host
+    is the host where the live mounted database or the mounted RMAN backup files will be unmounted. This works if there
+    is only one live mounted database or set of backup files mounted on the host. If there is more than one, you can
+    choose to unmount all the mounts on that host (-a) or specify a specific mount (-i) to unmount. You can list the
+    mounts on a host using rubrik_oracle_mount_info.
+
     Returns:
         unmount_info (dict): Status of the unmount request.
     """
