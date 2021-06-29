@@ -105,6 +105,7 @@ class RubrikRbsOracleDatabase:
         #     oracle_db_id = self.rubrik.connection.object_id(oracle_db_name, 'oracle_db', hostname=oracle_host_name)
         #     return oracle_db_id
         oracle_dbs = self.rubrik.connection.get("internal", "/oracle/db?name={}".format(self.database_name), timeout=self.cdm_timeout)
+        self.logger.debug("Oracle DBs with name: {} returned: {}".format(self.database_name, oracle_dbs))
         # Find the oracle_db object with the correct hostName or RAC cluster name.
         # Instance names can be stored/entered with and without the domain name so
         # we will compare the hostname without the domain.
