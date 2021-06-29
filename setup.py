@@ -11,7 +11,7 @@ setup(
     install_requires=[
         'requests >= 2.18.4, != 2.22.0',
         'rubrik_cdm',
-        'urllib3 <1.25, >=1.21.1',
+        'urllib3 >= 1.26.5',
         'Click',
         'pytz',
         'yaspin',
