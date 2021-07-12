@@ -10,11 +10,12 @@ import pytz
 @click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
 @click.option('--host_target', '-h', type=str, required=True, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
 @click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, iso format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
+@click.option('--new_name', '-n', type=str, help='Name for cloned database')
 @click.option('--pfile', '-p', type=str, help='Custom Pfile path (on target host)')
 @click.option('--aco_file_path', '-a', type=str, help='ACO file path for parameter changes')
 @click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, no_wait, debug_level):
+def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_path, no_wait, debug_level):
     """Clones an Oracle Database (alternate host restore or duplicate).
 
     Initiates an Oracle DB clone using the Rubrik RBS automated clone.
@@ -62,8 +63,15 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, no_wait
             raise RubrikOracleDBCloneError("Unexpected error: {}".format(sys.exc_info()[0]))
     if pfile:
         logger.warning("Using custom pfile File: {}.".format(pfile))
-    logger.warning("Starting Live Mount of {0} on {1}.".format(source_host_db[1], host_target))
-    db_clone_info = database.db_clone(host_id, time_ms, False, None, pfile, aco_file)
+    if new_name:
+        if not aco_file and not pfile:
+            logger.warning("Using a new database name requires either an ACO file or a custom pfile")
+            logger.warning("The following parameters are required: db_file_name_convert, log_file_name_convert, parameter_value_convert or control_files, db_create_file_dest")
+        else:
+            logger.warning("Starting Clone of {0} to {1} on {2}".format(database.database_name, new_name, host_target))
+    else:
+        logger.warning("Starting Clone of {0} on {1}.".format(source_host_db[1], host_target))
+    db_clone_info = database.db_clone(host_id, time_ms, False, None, new_name, pfile, aco_file)
     logger.debug(db_clone_info)
     # Set the time format for the printed result
     cluster_timezone = pytz.timezone(rubrik.timezone)
