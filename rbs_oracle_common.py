@@ -282,7 +282,7 @@ class RubrikRbsOracleDatabase:
         live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         return live_mount_info
 
-    def db_clone(self, host_id, time_ms, files_only=False, mount_path=None, pfile=None, aco_file=None):
+    def db_clone(self, host_id, time_ms, files_only=False, mount_path=None, new_name=None, pfile=None, aco_file=None):
         """
         Clones an Oracle database using RBS automation.
 
@@ -292,11 +292,12 @@ class RubrikRbsOracleDatabase:
             time_ms  (str):  The point in time of the backup to mount.
             files_only (bool):  Mount the backup pieces only.
             mount_path (str):  The path to mount the files only restore. (Required if files_only is True).
+            new_name (str): New name for clone db (optional). Requires either an ACO file or a custom pfile.
             pfile (str): The path to the custom pfile to use on the live mount host (mutually exclusive with ACO file).
             aco_file (str or bytes): The ACO file read into the variable.
 
         Returns:
-            live_mount_info (dict): The information about the requested live mount returned from the Rubrik CDM.
+            db_clone_info (dict): The information about the requested clone returned from the Rubrik CDM.
         """
         if pfile:
             payload = {
@@ -304,6 +305,7 @@ class RubrikRbsOracleDatabase:
                 "targetOracleHostOrRacId": host_id,
                 "targetMountPath": mount_path,
                 "shouldMountFilesOnly": files_only,
+                "cloneDbName": new_name,
                 "customPfilePath": pfile
             }
         elif aco_file:
@@ -313,6 +315,7 @@ class RubrikRbsOracleDatabase:
                 "targetOracleHostOrRacId": host_id,
                 "targetMountPath": mount_path,
                 "shouldMountFilesOnly": files_only,
+                "cloneDbName": new_name,
                 "advancedRecoveryConfigBase64": base64_aco_file
             }
         else:
