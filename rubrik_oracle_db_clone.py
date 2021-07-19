@@ -13,9 +13,10 @@ import pytz
 @click.option('--new_name', '-n', type=str, help='Name for cloned database')
 @click.option('--pfile', '-p', type=str, help='Custom Pfile path (on target host)')
 @click.option('--aco_file_path', '-a', type=str, help='ACO file path for parameter changes')
-@click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
+@click.option('--wait', is_flag=True, help='Wait for clone to complete. Times out at wait time.')
+@click.option('--wait_time', type=str, default=1800, help='Time for script to wait for clone to complete. Script exits but clone continues at time out.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_path, no_wait, debug_level):
+def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_path, wait, wait_time, debug_level):
     """Clones an Oracle Database (alternate host restore or duplicate).
 
     Initiates an Oracle DB clone using the Rubrik RBS automated clone.
@@ -41,6 +42,7 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
     oracle_db_info = database.get_oracle_db_info()
     logger.debug(oracle_db_info)
     # If source DB is RAC then the target for the live mount must be a RAC cluster
+    host_id = ''
     if 'racName' in oracle_db_info.keys():
         if oracle_db_info['racName']:
             host_id = database.get_rac_id(rubrik.cluster_id, host_target)
@@ -79,10 +81,10 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
     start_time = utc.localize(datetime.datetime.fromisoformat(db_clone_info['startTime'][:-1])).astimezone(cluster_timezone)
     fmt = '%Y-%m-%d %H:%M:%S %Z'
     logger.debug("Live mount status: {0}, Started at {1}.".format(db_clone_info['status'], start_time.strftime(fmt)))
-    if no_wait:
+    if not wait:
         return db_clone_info
     else:
-        db_clone_info = database.async_requests_wait(db_clone_info['id'], 12)
+        db_clone_info = database.async_requests_wait(db_clone_info['id'], wait_time)
         logger.warning("Async request completed with status: {}".format(db_clone_info['status']))
         if db_clone_info['status'] != "SUCCEEDED":
             raise RubrikOracleDBCloneError(
