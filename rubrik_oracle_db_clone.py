@@ -22,7 +22,7 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
     Initiates an Oracle DB clone using the Rubrik RBS automated clone. This can be run on any host since clone will
     be initialed on the host_target provided. Changing the the name with the new_name parameter requires an ACO file
     or a custom pfile with the following sets of parameters specified:
-        (a) db_file_name_convert, log_file_name_convert, parameter_value_convert
+\b      (a) db_file_name_convert, log_file_name_convert, parameter_value_convert
         (b) control_files, db_create_file_dest
     If time restore is not specified, the restore time will be to the latest recovery point on Rubrik. The script will
     initiate the clone and exit unless --wait is specified. Then the script will monitor the async request for the
