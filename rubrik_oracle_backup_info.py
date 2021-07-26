@@ -31,12 +31,23 @@ def cli(source_host_db, debug_level):
         database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
         oracle_db_info = database.get_oracle_db_info()
         print("*" * 100)
-        print("Database Details: ")
-        print("Database name: {}   ID: {}".format(oracle_db_info['name'], oracle_db_info['id']))
+
+        if 'dataGuardType' in oracle_db_info.keys():
+            if oracle_db_info['dataGuardType'] == 'DataGuardGroup':
+                print("Data Guard Group Details: ")
+                print("Data Guard Group Name: {0}   ID: {1}".format(oracle_db_info['name'], oracle_db_info['id']))
+            else:
+                print("Database Details: ")
+                print("Database name: {0}   ID: {1}".format(oracle_db_info['name'], oracle_db_info['id']))
         if 'standaloneHostName' in oracle_db_info.keys():
             print("Host Name: {}".format(oracle_db_info['standaloneHostName']))
         elif 'racName' in oracle_db_info.keys():
             print("Rac Cluster Name: {}    Instances: {}".format(oracle_db_info['racName'], oracle_db_info['numInstances']))
+        if 'dataGuardType' in oracle_db_info.keys():
+            if oracle_db_info['dataGuardType'] == 'DataGuardGroup':
+                for member in oracle_db_info['dataGuardGroupMembers']:
+                    print("DB Unique Name: {0}    Host: {1}    Role: {2}".format(member['dbUniqueName'], member['standaloneHostName'], member['role']))
+
         print("SLA: {}    Log Backup Frequency: {} min.    Log Retention: {} hrs.".format(oracle_db_info['effectiveSlaDomainName'], oracle_db_info['logBackupFrequencyInMinutes'], oracle_db_info['logRetentionHours']))
         oracle_snapshot_info = database.get_oracle_db_snapshots()
         logger.debug(oracle_snapshot_info)
