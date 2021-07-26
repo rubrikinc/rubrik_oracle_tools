@@ -87,6 +87,12 @@ class RubrikRbsOracleDatabase:
         self.database_name = database_name
         self.database_host = database_host
         self.rubrik = rubrik
+        if int(self.rubrik.version.split("-")[0].split(".")[0]) >= 6:
+            self.v6 = True
+            self.v6_deprecated = 'v1'
+        else:
+            self.v6 = False
+            self.v6_deprecated = 'internal'
         self.oracle_id = self.get_oracle_db_id()
 
     def get_oracle_db_id(self):
@@ -104,7 +110,7 @@ class RubrikRbsOracleDatabase:
         # that fix is in place get the id using a basic Get.
         #     oracle_db_id = self.rubrik.connection.object_id(oracle_db_name, 'oracle_db', hostname=oracle_host_name)
         #     return oracle_db_id
-        oracle_dbs = self.rubrik.connection.get("internal", "/oracle/db?name={}".format(self.database_name), timeout=self.cdm_timeout)
+        oracle_dbs = self.rubrik.connection.get( self.v6_deprecated, "/oracle/db?name={}".format(self.database_name), timeout=self.cdm_timeout)
         self.logger.debug("Oracle DBs with name: {} returned: {}".format(self.database_name, oracle_dbs))
         # Find the oracle_db object with the correct hostName or RAC cluster name.
         # Instance names can be stored/entered with and without the domain name so
@@ -112,6 +118,7 @@ class RubrikRbsOracleDatabase:
         if self.is_ip(self.database_host):
             raise RbsOracleCommonError("A hostname is required for the Oracle host, do not use an IP address.")
         oracle_id = None
+
         if oracle_dbs['total'] == 0:
             raise RbsOracleCommonError(
                 "The {} object '{}' was not found on the Rubrik cluster.".format(self.database_name, self.database_host))
@@ -121,14 +128,23 @@ class RubrikRbsOracleDatabase:
                     if 'standaloneHostName' in db.keys():
                         if self.match_hostname(self.database_host, db['standaloneHostName']):
                                 oracle_id = db['id']
+                                if self.v6:
+                                    if db['dataGuardType'] == 'DataGuardMember':
+                                        oracle_id = db['dataGuardGroupId']
                                 break
                     elif 'racName' in db.keys():
                         if self.database_host == db['racName']:
                             oracle_id = db['id']
+                            if self.v6:
+                                if db['dataGuardType'] == 'DataGuardMember':
+                                    oracle_id = db['dataGuardGroupId']
                             break
                         for instance in db['instances']:
                             if self.match_hostname(self.database_host, instance['hostName']):
                                 oracle_id = db['id']
+                                if self.v6:
+                                    if db['dataGuardType'] == 'DataGuardMember':
+                                        oracle_id = db['dataGuardGroupId']
                                 break
                         if oracle_id:
                             break
@@ -147,7 +163,7 @@ class RubrikRbsOracleDatabase:
         Returns:
             oracle_db_info (dict): The json returned  from the Rubrik CDM with the database information converted to a dictionary.
         """
-        oracle_db_info = self.rubrik.connection.get('internal', '/oracle/db/{}'.format(self.oracle_id), timeout=self.cdm_timeout)
+        oracle_db_info = self.rubrik.connection.get(self.v6_deprecated, '/oracle/db/{}'.format(self.oracle_id), timeout=self.cdm_timeout)
         return oracle_db_info
 
     def get_oracle_db_recoverable_range(self):
