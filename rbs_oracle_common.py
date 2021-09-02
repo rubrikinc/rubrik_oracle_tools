@@ -118,13 +118,22 @@ class RubrikRbsOracleDatabase:
         if self.is_ip(self.database_host):
             raise RbsOracleCommonError("A hostname is required for the Oracle host, do not use an IP address.")
         oracle_id = None
-
+        if oracle_dbs['total'] == 0 and self.v6:
+            self.logger.debug("No database found for database name {}, checking for database unique name...".format(self.database_name))
+            all_dbs = self.rubrik.connection.get(self.v6_deprecated, "/oracle/db".format(self.database_name), timeout=self.cdm_timeout)
+            for db in all_dbs['data']:
+                if db['dbUniqueName'].lower() == self.database_name.lower():
+                    self.logger.debug("Found object with dbUniqueName: {}".format(db))
+                    oracle_dbs['data'].append(db)
+                    oracle_dbs['total'] += 1
+                    self.db_unique_name = True
+            self.logger.debug("Databases found for database unique name {}: {}".format(self.database_name, oracle_dbs))
         if oracle_dbs['total'] == 0:
             raise RbsOracleCommonError(
                 "The {} object '{}' was not found on the Rubrik cluster.".format(self.database_name, self.database_host))
         elif oracle_dbs['total'] > 0:
             for db in oracle_dbs['data']:
-                if db['name'].lower() == self.database_name.lower() and db['isRelic'] == False:
+                if (db['name'].lower() == self.database_name.lower() or db['dbUniqueName'].lower() == self.database_name.lower()) and db['isRelic'] == False:
                     if 'standaloneHostName' in db.keys():
                         if self.match_hostname(self.database_host, db['standaloneHostName']):
                                 oracle_id = db['id']
@@ -152,7 +161,11 @@ class RubrikRbsOracleDatabase:
             self.logger.debug("Found Database id: {} for Database: {} on host or cluster {}".format(oracle_id, self.database_name, self.database_host))
             return oracle_id
         else:
-            raise RbsOracleCommonError("No ID found for a database with name {} running on host {}.".format(self.database_name, self.database_host))
+            if self.db_unique_name:
+                raise RbsOracleCommonError(
+                    "No ID found for a database with DB Unique Name {} running on host {}.".format(self.database_name, self.database_host))
+            else:
+                raise RbsOracleCommonError("No ID found for a database with name {} running on host {}.".format(self.database_name, self.database_host))
 
     def get_oracle_db_info(self):
         """
