@@ -124,7 +124,7 @@ class RubrikRbsOracleDatabase:
                 "The {} object '{}' was not found on the Rubrik cluster.".format(self.database_name, self.database_host))
         elif oracle_dbs['total'] > 0:
             for db in oracle_dbs['data']:
-                if db['name'].lower() == self.database_name.lower():
+                if db['name'].lower() == self.database_name.lower() and db['isRelic'] == False:
                     if 'standaloneHostName' in db.keys():
                         if self.match_hostname(self.database_host, db['standaloneHostName']):
                                 oracle_id = db['id']
