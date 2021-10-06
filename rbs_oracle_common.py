@@ -267,7 +267,7 @@ class RubrikRbsOracleDatabase:
             raise RbsOracleCommonError("The sla: {} was not found on this Rubrik cluster.".format(sla_name))
         return sla_id
 
-    def live_mount(self, host_id, time_ms, files_only=False, mount_path=None, pfile=None, aco_file=None):
+    def live_mount(self, host_id, time_ms, files_only=False, mount_path=None, pfile=None, aco_file=None, aco_parameters=None, oracle_home=None):
         """
         Live mounts a Rubrik Database backup on the requested host or cluster.
 
@@ -278,40 +278,40 @@ class RubrikRbsOracleDatabase:
             files_only (bool):  Mount the backup pieces only.
             mount_path (str):  The path to mount the files only restore. (Required if files_only is True).
             pfile (str): The path to the custom pfile to use on the live mount host (mutually exclusive with ACO file).
-            aco_file (str or bytes): The ACO file read into the variable.
+            aco_file (str): The base64 encoded ACO file read into the variable.
+            aco_parameters (dict): The ACO parameters as read from the ACO file.
+            oracle_home: ACO parameter for $ORACLE_HOME. Required (if not in aco_file) for DG Groups
 
         Returns:
             live_mount_info (dict): The information about the requested live mount returned from the Rubrik CDM.
         """
-        if pfile:
-            payload = {
-                "recoveryPoint": {"timestampMs": time_ms},
-                "targetOracleHostOrRacId": host_id,
-                "targetMountPath": mount_path,
-                "shouldMountFilesOnly": files_only,
-                "customPfilePath": pfile
-            }
-        elif aco_file:
-            base64_aco_file = self.b64_encode(aco_file)
-            payload = {
-                "recoveryPoint": {"timestampMs": time_ms},
-                "targetOracleHostOrRacId": host_id,
-                "targetMountPath": mount_path,
-                "shouldMountFilesOnly": files_only,
-                "advancedRecoveryConfigBase64": base64_aco_file
-            }
-        else:
-            payload = {
+        payload = {
                 "recoveryPoint": {"timestampMs": time_ms},
                 "targetOracleHostOrRacId": host_id,
                 "targetMountPath": mount_path,
                 "shouldMountFilesOnly": files_only
             }
-        self.logger.debug("Payload: {}".format(payload))
+        if pfile:
+            payload["customPfilePath"] = pfile.replace("'", "")
+        if aco_file:
+            payload["advancedRecoveryConfigBase64"] = aco_file.replace("'", "")
+        if aco_parameters:
+            payload["advancedRecoveryConfigMap"] = {}
+            for parameter in aco_parameters:
+                if "_CONVERT" not in parameter[0].upper():
+                    stripped_parameter = parameter[1].replace("'", "")
+                    stripped_parameter = stripped_parameter.replace('"', '')
+                else:
+                    stripped_parameter = parameter[1]
+                payload["advancedRecoveryConfigMap"][parameter[0]] = stripped_parameter
+        if oracle_home:
+            self.logger.debug("Oracle Home provided: {0}".format(oracle_home))
+            payload["advancedRecoveryConfigMap"] = {"ORACLE_HOME": oracle_home.replace("'", "")}
+        self.logger.debug("RBS oracle common payload: {}".format(payload))
         live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         return live_mount_info
 
-    def db_clone(self, host_id, time_ms, files_only=False, mount_path=None, new_name=None, pfile=None, aco_file=None):
+    def db_clone(self, host_id, time_ms, files_only=False, mount_path=None, new_name=None, pfile=None, aco_file=None, aco_parameters=None, oracle_home=None):
         """
         Clones an Oracle database using RBS automation.
 
@@ -323,38 +323,38 @@ class RubrikRbsOracleDatabase:
             mount_path (str):  The path to mount the files only restore. (Required if files_only is True).
             new_name (str): New name for clone db (optional). Requires either an ACO file or a custom pfile.
             pfile (str): The path to the custom pfile to use on the live mount host (mutually exclusive with ACO file).
-            aco_file (str or bytes): The ACO file read into the variable.
+            aco_file (str): The base64 encoded ACO file read into the variable.
+            aco_parameters (list): The ACO parameters as read from the ACO file.
+            oracle_home: ACO parameter for $ORACLE_HOME. Required (if not in aco_file) for DG Groups
 
         Returns:
             db_clone_info (dict): The information about the requested clone returned from the Rubrik CDM.
         """
-        if pfile:
-            payload = {
-                "recoveryPoint": {"timestampMs": time_ms},
-                "targetOracleHostOrRacId": host_id,
-                "targetMountPath": mount_path,
-                "shouldMountFilesOnly": files_only,
-                "cloneDbName": new_name,
-                "customPfilePath": pfile
-            }
-        elif aco_file:
-            base64_aco_file = self.b64_encode(aco_file)
-            payload = {
-                "recoveryPoint": {"timestampMs": time_ms},
-                "targetOracleHostOrRacId": host_id,
-                "targetMountPath": mount_path,
-                "shouldMountFilesOnly": files_only,
-                "cloneDbName": new_name,
-                "advancedRecoveryConfigBase64": base64_aco_file
-            }
-        else:
-            payload = {
+        payload = {
                 "recoveryPoint": {"timestampMs": time_ms},
                 "targetOracleHostOrRacId": host_id,
                 "targetMountPath": mount_path,
                 "shouldMountFilesOnly": files_only
             }
-        self.logger.debug("Payload: {}".format(payload))
+        if new_name:
+            payload["cloneDbName"] = new_name.replace("'", "")
+        if pfile:
+            payload["customPfilePath"] = pfile.replace("'", "")
+        if aco_file:
+            payload["advancedRecoveryConfigBase64"] = aco_file.replace("'", "")
+        if aco_parameters:
+            payload["advancedRecoveryConfigMap"] = {}
+            for parameter in aco_parameters:
+                if "_CONVERT" not in parameter[0].upper():
+                    stripped_parameter = parameter[1].replace("'", "")
+                    stripped_parameter = stripped_parameter.replace('"', '')
+                else:
+                    stripped_parameter = parameter[1]
+                payload["advancedRecoveryConfigMap"][parameter[0]] = stripped_parameter
+        if oracle_home:
+            # payload["advancedRecoveryConfigMap"]["ORACLE_HOME"] = oracle_home.replace("'", "")
+            payload["advancedRecoveryConfigMap"] = {"ORACLE_HOME": oracle_home.replace("'", "")}
+        self.logger.debug("RBS oracle common payload: {}".format(payload))
         db_clone_info = self.rubrik.connection.post('internal', '/oracle/db/{}/export'.format(self.oracle_id),
                                                       payload, timeout=self.cdm_timeout)
         return db_clone_info
