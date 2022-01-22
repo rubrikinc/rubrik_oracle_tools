@@ -554,6 +554,19 @@ class RubrikRbsOracleDatabase:
             except:
                 self.logger.warning("Error while deleting file: {}".format(file_path))
 
+    def refresh(self):
+        """
+                Refreshes Oracle database in CDM.
+
+                Args:
+                    self (object): Database Object
+                Returns:
+                    response (str): The response json from the refresh
+                """
+        oracle_database_refresh_info = self.rubrik.connection.post('v1', '/oracle/db/{0}/refresh'.format(self.oracle_id), '', timeout=self.cdm_timeout)
+        self.logger.debug("Refresh function response: {0}".format(oracle_database_refresh_info))
+        return oracle_database_refresh_info
+
     @staticmethod
     def match_hostname(hostname1, hostname2):
         """
@@ -737,3 +750,67 @@ class RubrikRbsOracleMount(RubrikRbsOracleDatabase):
         """
         live_mount_delete_info = self.rubrik.connection.delete('internal', '/oracle/db/mount/{}?force={}'.format(live_mount_id, force))
         return live_mount_delete_info
+
+class RubrikRbsOracleHost:
+    """
+    Rubrik RBS (snappable) Oracle Host object.
+    """
+    def __init__(self, rubrik, oracle_host, timeout=180):
+        self.logger = logging.getLogger(__name__ + '.RubrikRbsOracleHost')
+        self.cdm_timeout = timeout
+        self.oracle_host = oracle_host
+        self.rubrik = rubrik
+        self.id = self.get_host_id()
+
+    def get_host_id(self):
+        """
+        This will search for and retrieve the host id using the hostname.
+
+        Args:
+            self (object): Host Object
+        Returns:
+            host_id (str): The id of the requested live mount.
+        """
+        self.logger.debug("Getting Id for host: {0}.".format(self.oracle_host))
+        hosts = self.rubrik.connection.get('v1', '/host?name={0}'.format(self.oracle_host))
+        self.logger.debug(hosts)
+
+        host_id = None
+        if hosts['total'] < 1:
+            self.logger.debug("No host ID found for host {}...".format(self.oracle_host))
+            raise RbsOracleCommonError(
+                "The host object '{}' was not found on the Rubrik cluster.".format(self.oracle_host))
+        elif hosts['total'] == 1:
+            host_id = hosts['data'][0]['id']
+        elif hosts['total'] > 1:
+            self.logger.debug("Multiple host IDs found for host {}...".format(self.oracle_host))
+            raise RbsOracleCommonError(
+                "Multiple host IDs found for '{}' on the Rubrik cluster.".format(self.oracle_host))
+        if host_id:
+            self.logger.debug(
+                "Found Host id: {0} for host: {1}".format(host_id, self.oracle_host))
+            return host_id
+        else:
+            raise RbsOracleCommonError(
+                "No ID found for a host with name {}.".format(self.oracle_host))
+
+
+    def refresh(self):
+        """
+                Refreshes Oracle database host in CDM.
+
+                Args:
+                    self (object): Host Object
+                Returns:
+                    response (str): The response json from the refresh
+                """
+        oracle_host_refresh_info = self.rubrik.connection.post('v1',
+                                                                   '/host/{0}/refresh'.format(self.id),
+                                                                   '', timeout=self.cdm_timeout)
+        return oracle_host_refresh_info
+
+
+
+
+
+
