@@ -104,6 +104,8 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n 
             parallelism = configuration['parameters']['parallelism']
         if 'no_spfile' in configuration['parameters'].keys():
             no_spfile = configuration['parameters'].getboolean('no_spfile')
+        if 'oracle_home' in configuration['parameters'].keys():
+            oracle_home = configuration['parameters']['oracle_home']
         if 'no_file_name_check' in configuration['parameters'].keys():
             no_file_name_check = configuration['parameters'].getboolean('no_file_name_check')
         if 'refresh_db' in configuration['parameters'].keys():
@@ -163,7 +165,10 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n 
         time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
     # Check ORACLE_HOME and set to source ORACLE_HOME is not provided
     if not oracle_home:
-        oracle_home = oracle_db_info['oracleHome']
+        if 'oracleHome' in oracle_db_info:
+            oracle_home = oracle_db_info['oracleHome']
+        else:
+            logger.warning("No oracle_home was provided and Rubrik does not know the oracle_home, most likely because the source is a Data Guard Group ")
     if not os.path.exists(oracle_home):
         logger.debug("The ORACLE_HOME: {} does not exist on the target host: {}".format(oracle_home, host_target))
         raise RubrikOracleBackupMountCloneError("The ORACLE_HOME: {} does not exist on the target host: {}".format(oracle_home, host_target))
