@@ -42,6 +42,7 @@ def cli(source_host_db, no_wait, debug_level):
                 logger.warning("Refreshing database: {0}".format(source_host_db[1]))
                 database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
                 refresh_response = database.refresh()
+                response_url = refresh_response['links'][0]['href']
                 logger.debug(refresh_response)
                 # Set the time format for the printed result
                 cluster_timezone = pytz.timezone(rubrik.timezone)
