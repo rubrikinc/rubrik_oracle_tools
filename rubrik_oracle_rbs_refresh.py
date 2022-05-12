@@ -37,7 +37,7 @@ def cli(source_host_db, no_wait, debug_level):
     if len(source_host_db) > 1:
         if source_host_db[1]:
             # refresh db check for v6+
-            if int(rubrik.version.split("-")[0].split(".")[0]) >= 6 and int(rubrik.version.split("-")[0].split(".")[2]) >= 2:
+            if (int(rubrik.version.split("-")[0].split(".")[0]) >= 7) or (int(rubrik.version.split("-")[0].split(".")[0]) == 6 and int(rubrik.version.split("-")[0].split(".")[2]) >= 2):
                 logger.debug("Rubrik version is greater than 6.0.2, database refresh is supported.")
                 logger.warning("Refreshing database: {0}".format(source_host_db[1]))
                 database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
