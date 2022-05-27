@@ -376,7 +376,6 @@ Options:
 
 #### rubrik_oracle_backup_validate
 ```
-
 rubrik_oracle_backup_validate.py" --help
 Usage: rubrik_oracle_backup_validate.py [OPTIONS]
 
@@ -408,9 +407,58 @@ Options:
   --help                     Show this message and exit.  
 ```
 
+#### rubrik_oracle_manage_protection --help
+```
+
+Usage: rubrik_oracle_manage_protection [OPTIONS]
+
+      This will pause or unpause a Database backups by removing the
+      protection. To unpause (reassign) SLA Domain Policy the API Token
+      must have permissions on the SLA Domain Policy to be used. This will
+      only work for Rubrik CDM 7.0 and above.
+
+      Returns:
+          Status
+
+
+Options:
+  -s, --source_host_db TEXT    The source <host or RAC cluster>:<database>
+                               [required]
+
+  -i, --inherit                Inherit the SLA from the parent object
+  -a, --action [pause|resume]  [required]
+  --wait                       Wait for backup to complete.
+  -d, --debug_level TEXT       Logging level: DEBUG, INFO, WARNING, ERROR or
+                               CRITICAL.
+
+  --help                       Show this message and exit.  
+```
+
+#### rubrik_oracle_rbs_refresh --help
+```
+
+Usage: rubrik_oracle_rbs_refresh [OPTIONS]
+
+      This will initiate an on demand archive log backup of the database.
+
+      Returns:
+          log_backup_info (dict): The information about the snapshot returned from the Rubrik CDM.
+
+
+Options:
+  -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
+                             [required]
+
+  --no_wait                  Queue database refresh and exit. This option is
+                             always set for now.
+
+  -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
+                             CRITICAL.
+
+  --help                     Show this message and exit.
+```
+
 #### The Following must be run on the target host. They require a direct connection to the Oracle database so they must be run on the host where the live mount, clone, or duplicate is being run.
-```
-```
 
 #### rubrik_oracle_backup_clone
 ```
