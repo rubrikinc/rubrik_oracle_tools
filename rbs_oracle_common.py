@@ -482,12 +482,10 @@ class RubrikRbsOracleDatabase:
         timeout_start = time.time()
         oracle_request = None
         db_info = self.get_oracle_db_info()
-        # self.get_oracle_db_info()
-        # self.logger.debug("Pending SLA: {0}, Effective SLA: {1}".format(pending_sla, db_info['effectiveSlaDomainName']))
         if pending_sla == 'inherit':
             while time.time() < timeout_start + (timeout * 60):
                 db_info = self.get_oracle_db_info()
-                if db_info['configuredSlaDomainName'] != 'INHERIT':
+                if db_info['slaAssignment'] == 'Derived':
                     break
                 with yaspin(Spinners.line, text='Effective SLA: {}'.format(db_info['effectiveSlaDomainName'])):
                     time.sleep(10)

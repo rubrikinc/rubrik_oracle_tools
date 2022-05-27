@@ -10,14 +10,13 @@ import operator
 
 @click.command()
 @click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
-@click.option('--sla', is_flag=True, help='Pause the entire SLA')
-@click.option('--inherit', '-i', is_flag=True, help='Pause the entire SLA')
+@click.option('--inherit', '-i', is_flag=True, help='Inherit the SLA from the parent object')
 @click.option('--action', '-a', required=True, type=click.Choice(['pause', 'resume'], case_sensitive=False))
 @click.option('--wait', is_flag=True, help='Wait for backup to complete.')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, sla, inherit, action, wait, debug_level):
+def cli(source_host_db, inherit, action, wait, debug_level):
     """
-    This will pause or unpause an SLA or a Database.
+    This will pause or unpause a Database backups by removing the protection.
 \b
 To unpause (reassign) SLA Domain Policy the API Token must have permissions on the SLA Domain Policy to be used. This
 will only work for Rubrik CDM 7.0 and above.
@@ -44,54 +43,45 @@ will only work for Rubrik CDM 7.0 and above.
 
     logger.warning("Database is currently protected with SLA Domain Policy: {0}".format(oracle_db_info['configuredSlaDomainName']))
     if action == 'pause':
-        if sla:
-            pass
-        else:
-            logger.warning("Setting database to unprotected.")
-            unprotect_result = database.oracle_db_unprotect()
-            logger.warning("Pending SLA Domain Name: {0}".format(unprotect_result[0]['pendingSlaDomainName']))
+        logger.warning("Setting database to unprotected.")
+        unprotect_result = database.oracle_db_unprotect()
+        logger.warning("Pending SLA Domain Name: {0}".format(unprotect_result[0]['pendingSlaDomainName']))
+        if wait:
+            logger.warning("Waiting will while the database is set to {0}".format(unprotect_result[0]['pendingSlaDomainName']))
+            oracle_db_info = database.async_sla_change_wait(unprotect_result[0]['pendingSlaDomainName'], 15)
+            logger.debug("DB info after wait: {0}".format(oracle_db_info))
+            logger.warning("The database is now set to {0}".format(oracle_db_info['effectiveSlaDomainName']))
+    elif action == 'resume':
+        oracle_snapshot_info = database.get_oracle_db_snapshots()
+        oracle_snapshots = []
+        for snap in oracle_snapshot_info['data']:
+            if not snap['isOnDemandSnapshot']:
+                oracle_snapshots.append(snap)
+        latest_snap = max(oracle_snapshots,
+                          key=lambda x: (datetime.strptime(x['date'].split('.')[0], '%Y-%m-%dT%H:%M:%S')))
+        logger.debug("Latest Snapshot -> Backup Date: {}   Snapshot ID: {}".format(database.cluster_time(latest_snap['date'], rubrik.timezone)[:-6], latest_snap['id']))
+        if inherit:
+            protect_result = database.oracle_db_protect('', inherit)
+            logger.warning("Database updated to inherit SLA Domain from host/cluster.")
             if wait:
-                logger.warning("Waiting will while the database is set to {0}".format(unprotect_result[0]['pendingSlaDomainName']))
-                oracle_db_info = database.async_sla_change_wait(unprotect_result[0]['pendingSlaDomainName'], 15)
+                logger.warning("Waiting will while the database is set to inherit it's SLA Domain")
+                oracle_db_info = database.async_sla_change_wait('inherit', 15)
                 logger.debug("DB info after wait: {0}".format(oracle_db_info))
                 logger.warning("The database is now set to {0}".format(oracle_db_info['effectiveSlaDomainName']))
-    elif action == 'resume':
-        if sla:
-            pass
-        else:
-            oracle_snapshot_info = database.get_oracle_db_snapshots()
-            oracle_snapshots = []
-            for snap in oracle_snapshot_info['data']:
-                if not snap['isOnDemandSnapshot']:
-                    oracle_snapshots.append(snap)
-            latest_snap = max(oracle_snapshots,
-                              key=lambda x: (datetime.strptime(x['date'].split('.')[0], '%Y-%m-%dT%H:%M:%S')))
-            logger.debug("Latest Snapshot -> Backup Date: {}   Snapshot ID: {}".format(database.cluster_time(latest_snap['date'], rubrik.timezone)[:-6], latest_snap['id']))
-            if inherit:
-                protect_result = database.oracle_db_protect('','inherit')
-                logger.warning("Database updated to inherit SLA Domain from host/cluster.")
-                if wait:
-                    logger.warning("Waiting will while the database is set to inherit it's SLA Domain")
-                    ######N  Need to get next level up SLA Domain
-
-
-                    # oracle_db_info = database.async_sla_change_wait('', 15)
-                    logger.debug("DB info after wait: {0}".format(oracle_db_info))
-                    logger.warning("The database is now set to {0}".format(oracle_db_info['effectiveSlaDomainName']))
-                else:
-                    logger.warning("Pending SLA Domain Name: {0}".format(protect_result[0]['pendingSlaDomainName']))
             else:
-                logger.warning("Last SLA Domain Policy applied: {0}   ID: {1}".format(latest_snap['slaName'], latest_snap['slaId']))
-                protect_result = database.oracle_db_protect(latest_snap['slaId'])
-                logger.debug("Protect result: {0}".format(protect_result))
-                if wait:
-                    logger.warning("Waiting will while the database is set to {0}".format(latest_snap['slaName']))
-                    oracle_db_info = database.async_sla_change_wait(latest_snap['slaName'], 15)
-                    logger.warning("New SLA: {0}".format(latest_snap['slaName']))
-                    logger.debug("DB info after wait: {0}".format(oracle_db_info))
-                    logger.warning("The database is now set to {0}".format(oracle_db_info['effectiveSlaDomainName']))
-                else:
-                    logger.warning("Pending SLA: {0}".format(latest_snap['slaName']))
+                logger.warning("Pending SLA Domain Name: {0}".format(protect_result[0]['pendingSlaDomainName']))
+        else:
+            logger.warning("Last SLA Domain Policy applied: {0}   ID: {1}".format(latest_snap['slaName'], latest_snap['slaId']))
+            protect_result = database.oracle_db_protect(latest_snap['slaId'])
+            logger.debug("Protect result: {0}".format(protect_result))
+            if wait:
+                logger.warning("Waiting will while the database is set to {0}".format(latest_snap['slaName']))
+                oracle_db_info = database.async_sla_change_wait(latest_snap['slaName'], 15)
+                logger.warning("New SLA: {0}".format(latest_snap['slaName']))
+                logger.debug("DB info after wait: {0}".format(oracle_db_info))
+                logger.warning("The database is now set to {0}".format(oracle_db_info['effectiveSlaDomainName']))
+            else:
+                logger.warning("Pending SLA: {0}".format(latest_snap['slaName']))
     else:
         logger.waring("No action [pause, resume] was supplied")
         raise RubrikOracleManageProtectionError("No action [pause, resume] was supplied")
