@@ -478,6 +478,37 @@ class RubrikRbsOracleDatabase:
         else:
             return oracle_request
 
+    def async_sla_change_wait(self, pending_sla, timeout):
+        timeout_start = time.time()
+        oracle_request = None
+        db_info = self.get_oracle_db_info()
+        if pending_sla == 'inherit':
+            while time.time() < timeout_start + (timeout * 60):
+                db_info = self.get_oracle_db_info()
+                if db_info['slaAssignment'] == 'Derived':
+                    break
+                with yaspin(Spinners.line, text='Effective SLA: {}'.format(db_info['effectiveSlaDomainName'])):
+                    time.sleep(10)
+            if db_info['effectiveSlaDomainName'] == 'Unprotected':
+                raise RbsOracleCommonError(
+                    "\nTimeout: Async request status has been {0} for longer than the timeout period of {1} minutes. The request will remain active (current effective SLA: {0})  and the script will exit.".format(
+                        db_info['effectiveSlaDomainName'], timeout))
+            else:
+                return db_info
+        else:
+            while time.time() < timeout_start + (timeout * 60):
+                db_info = self.get_oracle_db_info()
+                if db_info['effectiveSlaDomainName'] == pending_sla:
+                    break
+                with yaspin(Spinners.line, text='Effective SLA: {}'.format(db_info['effectiveSlaDomainName'])):
+                    time.sleep(10)
+            if db_info['effectiveSlaDomainName'] != pending_sla:
+                raise RbsOracleCommonError(
+                    "\nTimeout: Async request status has been {0} for longer than the timeout period of {1} minutes. The request will remain active (current effective SLA: {0})  and the script will exit.".format(
+                        db_info['effectiveSlaDomainName'], timeout))
+            else:
+                return db_info
+
     def oracle_db_rename(self, oracle_sid, oracle_home, new_oracle_name):
         os.environ["ORACLE_HOME"] = oracle_home
         os.environ["ORACLE_SID"] = oracle_sid
@@ -566,6 +597,54 @@ class RubrikRbsOracleDatabase:
         oracle_database_refresh_info = self.rubrik.connection.post('v1', '/oracle/db/{0}/refresh'.format(self.oracle_id), '', timeout=self.cdm_timeout)
         self.logger.debug("Refresh function response: {0}".format(oracle_database_refresh_info))
         return oracle_database_refresh_info
+
+    def oracle_db_unprotect(self):
+        """
+        Sets a database object to unprotected
+
+        Args:
+            self (object): Database Object
+
+        Returns:
+            Return json from the post to assign SLA
+
+        """
+
+        payload = {
+            "managedIds": ["{0}".format(self.oracle_id)],
+            "existingSnapshotRetention": "RetainSnapshots"
+        }
+
+        oracle_db_protect_info = self.rubrik.connection.post('v2', '/sla_domain/UNPROTECTED/assign', payload, timeout=self.cdm_timeout)
+        return oracle_db_protect_info
+
+
+    def oracle_db_protect(self, sla_id, inherit=False):
+        """
+        Add the database to an SLA Domain Policy or set it to inherit the SLA Domain Policy
+
+        Args:
+            self (object): Database Object
+            sla_id (str): The Rubrik SLA ID.
+            Inherit (bool): Set the database object to inherit it's protection from the host/cluster.
+
+        Returns:
+            Return json from the post to assign SLA
+
+        """
+        if inherit or not sla_id:
+            sla_id = 'INHERIT'
+
+        payload = {
+            "managedIds": ["{0}".format(self.oracle_id)],
+            "existingSnapshotRetention": "RetainSnapshots",
+            "shouldApplyToExistingSnapshots": False,
+            "shouldApplyToNonPolicySnapshots": False
+        }
+
+        oracle_db_protect_info = self.rubrik.connection.post('v2', '/sla_domain/{0}/assign'.format(sla_id), payload,
+                                                              timeout=self.cdm_timeout)
+        return oracle_db_protect_info
 
     @staticmethod
     def match_hostname(hostname1, hostname2):
