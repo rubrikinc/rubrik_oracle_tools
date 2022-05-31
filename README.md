@@ -409,16 +409,16 @@ Options:
 
 #### rubrik_oracle_manage_protection --help
 ```
-
 Usage: rubrik_oracle_manage_protection [OPTIONS]
 
-      This will pause or unpause a Database backups by removing the
-      protection. To unpause (reassign) SLA Domain Policy the API Token
-      must have permissions on the SLA Domain Policy to be used. This will
-      only work for Rubrik CDM 7.0 and above.
+  This will pause or resume database backups by managing the protection.
 
-      Returns:
-          Status
+  Pause will stop the database badkups (both database and archive log) by setting the database to Unprotected.
+  Resume will restore the last SLA Domain Policy applied (at the last snapshot). If the SLA Domain Policy is
+   iherited from the parent object (host/cluster) that can be set using the inherit script parameter (-i) and the
+   database will be set to derive it's protection from it's parent. The API Token user must have permissions on the SLA
+   Domain Policy to be used. This will only work for Rubrik CDM 7.0 and above.
+
 
 
 Options:
@@ -431,7 +431,7 @@ Options:
   -d, --debug_level TEXT       Logging level: DEBUG, INFO, WARNING, ERROR or
                                CRITICAL.
 
-  --help                       Show this message and exit.  
+  --help                       Show this message and exit.
 ```
 
 #### rubrik_oracle_rbs_refresh --help
