@@ -72,7 +72,7 @@ cd /home/oracle/rubrik_oracle_tools/
 ```
 If installing into a virtual environment, make sure that is activated:
 ```
-source venv37/bin/activate
+source /home/oracle/rubrik_oracle_tools/venv37/bin/activate
 ``` 
 Install the module with setup tools:
 ```
