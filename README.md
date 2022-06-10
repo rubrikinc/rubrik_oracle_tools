@@ -14,8 +14,9 @@ CODE HERE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
 # :hammer: Installation
 ## Python 3.7 installation instructions for OEL/RHEL linux. 
 ------------------------------------------------------------
-As root:
+Note you can substitute 3.7.6 for whatever version you would like to use, however unless your OS is very recent it is recommeded to use 3.9 as the highest version. Version 3.10 and up will require a newer version of SSL so more components will need to be upgraded. Currently latest version recommended is 3.9.13.
 
+As root:
 ```
 yum install gcc openssl-devel bzip2-devel libffi-devel
 cd /usr/src
@@ -37,6 +38,7 @@ Python 3.7 is now installed.
 ## Download the Rubrik Oracle scripts
 ------------------------------------------------
 Download the Rubrik Oracle Tools Repository 
+As the user that will own the scripts (typically oracle):
 ```
 git clone https://github.com/pcrouleur/rubrik_oracle_tools.git
 ```
@@ -53,7 +55,7 @@ python3.7 -m venv venv37
 
 Activate the environment (This can be added to your .bash_profile):
 ```
-source venv37/bin/activate
+source /home/oracle/rubrik_oracle_tools/venv37/bin/activate
 ```
 
 Upgrade pip (optional):
@@ -109,6 +111,10 @@ rubrik_oracle_backup_mount - Mounts RMAN backups.
 rubrik_oracle_db_mount - Live mounts an Oracle database.
 rubrik_oracle_db_clone - Clones an Oracle database.
 rubrik_oracle_unmount - Removes a Rubrik mount. Can be a live mounted database or RMAN Backups.
+rubrik_oracle_backup_validate - Runs an RMAN restore validate to check the backups.
+rubrik_oracle_manage_protection - Switches a database to un-protected and back for maintenance.
+rubrik_oracle_rbs_refresh - Refresh the database or the host in the Rubrik CDM.
+
 ```
 The follow will connect to Rubrik but must also connect to the local Oracle instance. They must be run on the target host:
 ```
