@@ -38,8 +38,9 @@ def cli(source_host_db, mounted_host, debug_level):
         for live_mount_id in live_mount_ids:
             logger.info("Getting info for mount with id: {}.".format(live_mount_id))
             mount_information = mount.get_live_mount_info(live_mount_id)
+            logger.debug("mount_info: {0}".format(mount_information))
             print("Source DB: {}  Source Host: {}  Mounted Host: {}  Owner: {}  Created: {}  Status: {}  id: {}".format(
-                source_host_db[1], source_host_db[0], mounted_host, mount_information['ownerName'],
+                source_host_db[1], source_host_db[0], mounted_host, mount_information.get('ownerName', 'None'),
                 mount_information['creationDate'], mount_information['status'], mount_information['id']))
         return
 
