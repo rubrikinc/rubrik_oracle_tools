@@ -45,15 +45,8 @@ def cli(debug_level):
             elif 'racName' in db.keys():
                 db_element[0] = db['racName']
             db_element[1] = db['sid']
-            if 'dataGuardType' in db.keys():
-                if db['dataGuardType'] == 'DataGuardMember':
-                    db_element[2] = db['dataGuardGroupName'].split('DG_GROUP_')[1]
-                    dg_id = db['dataGuardGroupId']
-                    dg_groups = rubrik.connection.get("v1", "/oracle/db/{0}".format(db['dataGuardGroupId']))
-                    db_element[3] = dg_groups['effectiveSlaDomainName']
-                else:
-                    db_element[2] = 'None'
-                    db_element[3] = db['effectiveSlaDomainName']
+            db_element[2] = 'None'
+            db_element[3] = db['effectiveSlaDomainName']
             if 'logBackupFrequencyInMinutes' in db.keys():
                 db_element[4] = db['logBackupFrequencyInMinutes']
             else:
@@ -63,11 +56,6 @@ def cli(debug_level):
             else:
                 db_element[5] = "None"
             db_element[7] = db['numMissedSnapshot']
-            # t = rbs_oracle_common.Timer(text="Database details GET took {:0.2f} seconds", logger=logging.debug)
-            # t.start()
-            # database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, db_element[1], db_element[0])
-            # oracle_db_info1 = database.get_oracle_db_info()
-            # t.stop()
             if dg_id:
                 id = dg_id
             else:
@@ -77,7 +65,9 @@ def cli(debug_level):
             oracle_db_details = rubrik.connection.get("v1", "/oracle/db/{0}".format(id))
             t.stop()
             if 'latestRecoveryPoint' in oracle_db_details.keys():
-                db_element[6] = format(rbs_oracle_common.RubrikRbsOracleDatabase.cluster_time(oracle_db_details['latestRecoveryPoint'], rubrik.timezone)[:-6])
+                db_element[6] = format(
+                    rbs_oracle_common.RubrikRbsOracleDatabase.cluster_time(oracle_db_details['latestRecoveryPoint'],
+                                                                           rubrik.timezone)[:-6])
             else:
                 db_element[6] = "None"
             db_data.append(db_element)
@@ -94,14 +84,30 @@ def cli(debug_level):
             logger.debug("DG_GROUP Details: {}".format(oracle_dg_details))
             for member in oracle_dg_details['dataGuardGroupMembers']:
                 logging.warning(member['dbUniqueName'])
+                db_element = [''] * 8
                 db_element[0] = member['standaloneHostName']
                 db_element[1] = member['dbUniqueName'] + '-' + member['role']
                 db_element[2] = oracle_dg_details['dbUniqueName']
+
                 db_element[3] = oracle_dg_details['effectiveSlaDomainName']
-                db_element[4] = oracle_dg_details['logBackupFrequencyInMinutes']
-                db_element[5] = oracle_dg_details['lastSnapshotTime'][:-5]
+                if 'logBackupFrequencyInMinutes' in oracle_dg_details.keys():
+                    db_element[4] = oracle_dg_details['logBackupFrequencyInMinutes']
+                else:
+                    db_element[4] = "None"
+                if 'lastSnapshotTime' in oracle_dg_details.keys():
+                    db_element[5] = oracle_dg_details['lastSnapshotTime'][:-5]
+                else:
+                    db_element[5] = "None"
                 db_element[6] = oracle_dg_details['latestRecoveryPoint']
+                if 'latestRecoveryPoint' in oracle_dg_details.keys():
+                    db_element[6] = oracle_dg_details['latestRecoveryPoint']
+                    db_element[6] = format(
+                        rbs_oracle_common.RubrikRbsOracleDatabase.cluster_time(oracle_dg_details['latestRecoveryPoint'],
+                                                                               rubrik.timezone)[:-6])
+                else:
+                    db_element[6] = "None"
                 db_element[7] = oracle_dg_details['numMissedSnapshot']
+                db_data.append(db_element)
     db_data.sort(key=lambda x: (x[0], x[1]))
     print("*" * 110)
     print(tabulate(db_data, headers=db_headers))
