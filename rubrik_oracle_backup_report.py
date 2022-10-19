@@ -34,11 +34,12 @@ def cli(debug_level):
     databases = rubrik.connection.get("internal", "/oracle/db")
     t.stop()
     db_data = []
+    dg_group_ids = []
     db_headers = ["Host/Cluster", "Database", "DG_Group", "SLA", "Log Freq", "Last DB BKUP", "Last LOG BKUP", "Missed"]
     for db in databases['data']:
         db_element = [''] * 8
         dg_id = False
-        if not db['isRelic']:
+        if not db['isRelic'] and (db['dataGuardType'] == 'NonDataGuard'):
             if 'standaloneHostName' in db.keys():
                 db_element[0] = db['standaloneHostName']
             elif 'racName' in db.keys():
@@ -80,9 +81,31 @@ def cli(debug_level):
             else:
                 db_element[6] = "None"
             db_data.append(db_element)
+        elif db['dataGuardType'] == 'DataGuardMember':
+            dg_group_ids.append(db['dataGuardGroupId'])
+    if dg_group_ids:
+        dg_group_ids = list(set(dg_group_ids))
+        for dg_id in dg_group_ids:
+            logging.debug("DG_Group ID found: {}".format(dg_id))
+            t = rbs_oracle_common.Timer(text="DG_GROUP details direct GET took {:0.2f} seconds", logger=logging.debug)
+            t.start()
+            oracle_dg_details = rubrik.connection.get("v1", "/oracle/db/{0}".format(dg_id))
+            t.stop()
+            logger.debug("DG_GROUP Details: {}".format(oracle_dg_details))
+            for member in oracle_dg_details['dataGuardGroupMembers']:
+                logging.warning(member['dbUniqueName'])
+                db_element[0] = member['standaloneHostName']
+                db_element[1] = member['dbUniqueName'] + '-' + member['role']
+                db_element[2] = oracle_dg_details['dbUniqueName']
+                db_element[3] = oracle_dg_details['effectiveSlaDomainName']
+                db_element[4] = oracle_dg_details['logBackupFrequencyInMinutes']
+                db_element[5] = oracle_dg_details['lastSnapshotTime'][:-5]
+                db_element[6] = oracle_dg_details['latestRecoveryPoint']
+                db_element[7] = oracle_dg_details['numMissedSnapshot']
     db_data.sort(key=lambda x: (x[0], x[1]))
     print("*" * 110)
     print(tabulate(db_data, headers=db_headers))
+
 
 
 class RubrikOracleBackupInfoError(rbs_oracle_common.NoTraceBackWithLineNumber):
