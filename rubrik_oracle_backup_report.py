@@ -83,7 +83,7 @@ def cli(debug_level):
             t.stop()
             logger.debug("DG_GROUP Details: {}".format(oracle_dg_details))
             for member in oracle_dg_details['dataGuardGroupMembers']:
-                logging.warning(member['dbUniqueName'])
+                logging.debug(member['dbUniqueName'])
                 db_element = [''] * 8
                 db_element[0] = member['standaloneHostName']
                 db_element[1] = member['dbUniqueName'] + '-' + member['role']
