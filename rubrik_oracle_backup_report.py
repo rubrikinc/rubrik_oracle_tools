@@ -76,8 +76,7 @@ def cli(debug_level):
             oracle_db_details = rubrik.connection.get("v1", "/oracle/db/{0}".format(id))
             t.stop()
             if 'latestRecoveryPoint' in oracle_db_details.keys():
-                # db_element[6] = format(rbs_oracle_common.cluster_time(oracle_db_details['latestRecoveryPoint'], rubrik.timezone)[:-6])
-                db_element[6] = oracle_db_details['latestRecoveryPoint']
+                db_element[6] = format(rbs_oracle_common.RubrikRbsOracleDatabase.cluster_time(oracle_db_details['latestRecoveryPoint'], rubrik.timezone)[:-6])
             else:
                 db_element[6] = "None"
             db_data.append(db_element)
