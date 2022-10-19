@@ -9,9 +9,8 @@ import rbs_oracle_common
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
 def cli(debug_level):
     """
-    Displays information about the Oracle database object, the available snapshots, and recovery ranges.
-    If no source_host_db is supplied, all non-relic Oracle databases will be listed.
-    Recommended console line size is 120 characters.
+    Displays information about all non-relic Oracle databases.
+    Recommended console line size is 180 characters.
     """
     numeric_level = getattr(logging, debug_level.upper(), None)
     if not isinstance(numeric_level, int):
