@@ -39,9 +39,6 @@ def cli(debug_level):
     db_data = []
     dg_group_ids = []
     db_headers = ["Host/Cluster", "Database", "DG_Group", "SLA", "Log Freq", "Last DB BKUP", "Last LOG BKUP", "Missed"]
-
-    threaded_timer = rbs_oracle_common.Timer(text="Rubrik CDM Database report completed in {:0.2f} seconds", logger=logging.warning)
-    threaded_timer.start()
     db_data = []
     db_list = []
     for db in databases['data']:
@@ -61,7 +58,7 @@ def cli(debug_level):
     print("*" * 110)
     print(tabulate(element_list, headers=db_headers))
     print('\r\r\r')
-    threaded_timer.stop()
+    overall_timer.stop()
 
 def get_db_data(id):
     db_element = [''] * 8
