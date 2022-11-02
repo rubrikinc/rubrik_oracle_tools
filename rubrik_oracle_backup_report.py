@@ -38,7 +38,7 @@ def cli(debug_level):
     t.stop()
     db_data = []
     dg_group_ids = []
-    db_headers = ["Host/Cluster", "Database", "DG_Group", "SLA", "Log Freq", "Last DB BKUP", "Last LOG BKUP", "Missed"]
+    db_headers = ["Host/Cluster", "Database", "DG_Group", "SLA", "Log Freq", "Last DB BKUP", "Last LOG BKUP", "Missed", "CDM"]
     db_data = []
     db_list = []
     for db in databases['data']:
@@ -61,7 +61,7 @@ def cli(debug_level):
     overall_timer.stop()
 
 def get_db_data(id):
-    db_element = [''] * 8
+    db_element = [''] * 9
     t = rbs_oracle_common.Timer(text="Database details direct GET took {:0.2f} seconds", logger=logging.debug)
     t.start()
     oracle_db_details = rubrik.connection.get("v1", "/oracle/db/{0}".format(id))
@@ -95,6 +95,10 @@ def get_db_data(id):
             else:
                 db_element[6] = "None"
             db_element[7] = oracle_db_details['numMissedSnapshot']
+            if oracle_db_details['isDbLocalToTheCluster']:
+                db_element[8] = "Local"
+            else:
+                db_element[8] = "Remote"
             element_list.append(db_element)
     elif oracle_db_details['dataGuardType'] == 'NonDataGuard':
         if 'standaloneHostName' in oracle_db_details.keys():
@@ -119,6 +123,10 @@ def get_db_data(id):
         else:
             db_element[6] = "None"
         db_element[7] = oracle_db_details['numMissedSnapshot']
+        if oracle_db_details['isDbLocalToTheCluster']:
+            db_element[8] = "Local"
+        else:
+            db_element[8] = "Remote"
         element_list.append(db_element)
     return
 
