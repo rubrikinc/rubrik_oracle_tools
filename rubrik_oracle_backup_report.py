@@ -61,7 +61,6 @@ def cli(debug_level):
     overall_timer.stop()
 
 def get_db_data(id):
-    db_element = [''] * 9
     t = rbs_oracle_common.Timer(text="Database details direct GET took {:0.2f} seconds", logger=logging.debug)
     t.start()
     oracle_db_details = rubrik.connection.get("v1", "/oracle/db/{0}".format(id))
@@ -70,7 +69,7 @@ def get_db_data(id):
         logging.debug("DG Group: {}".format(oracle_db_details['dbUniqueName']))
         for member in oracle_db_details['dataGuardGroupMembers']:
             logging.debug("DG_GROUP member: {}".format(member['dbUniqueName']))
-            db_element = [''] * 8
+            db_element = [''] * 9
             if 'standaloneHostName' in member.keys():
                 db_element[0] = member['standaloneHostName']
             elif 'racName' in member.keys():
@@ -86,7 +85,6 @@ def get_db_data(id):
                 db_element[5] = oracle_db_details['lastSnapshotTime'][:-5]
             else:
                 db_element[5] = "None"
-            db_element[6] = oracle_db_details['latestRecoveryPoint']
             if 'latestRecoveryPoint' in oracle_db_details.keys():
                 db_element[6] = oracle_db_details['latestRecoveryPoint']
                 db_element[6] = format(
@@ -99,8 +97,10 @@ def get_db_data(id):
                 db_element[8] = "Local"
             else:
                 db_element[8] = "Remote"
+            logging.debug("Element added: {}".format(db_element))
             element_list.append(db_element)
     elif oracle_db_details['dataGuardType'] == 'NonDataGuard':
+        db_element = [''] * 9
         if 'standaloneHostName' in oracle_db_details.keys():
             db_element[0] = oracle_db_details['standaloneHostName']
         elif 'racName' in oracle_db_details.keys():
