@@ -66,6 +66,7 @@ def cli(source_host_db, debug_level):
         print("*" * 110)
         print("Connected to cluster: {}, version: {}, Timezone: {}.".format(rubrik.name, rubrik.version, rubrik.timezone))
         databases = rubrik.connection.get("internal", "/oracle/db")
+        rubrik.delete_session()
         db_data = []
         db_headers = ["Host/Cluster", "Database", "DG_Group", "SLA", "Log Freq", "Last DB BKUP", "Missed"]
         for db in databases['data']:
@@ -98,6 +99,7 @@ def cli(source_host_db, debug_level):
         db_data.sort(key=lambda x: (x[0], x[1]))
         print("*" * 110)
         print(tabulate(db_data, headers=db_headers))
+        rubrik.delete_session()
 
 
 class RubrikOracleBackupInfoError(rbs_oracle_common.NoTraceBackWithLineNumber):
