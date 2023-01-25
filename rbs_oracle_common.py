@@ -20,6 +20,7 @@ import urllib3
 import rubrik_cdm
 from dataclasses import dataclass, field
 from typing import Callable, ClassVar, Dict, Optional
+import requests
 
 urllib3.disable_warnings()
 logging.getLogger('urllib3').setLevel(logging.WARNING)
@@ -69,14 +70,71 @@ class RubrikConnection:
                 if not (self.config[setting] and self.config[setting].strip()):
                     self.logger.debug("Setting {} to None".format(setting))
                     self.config[setting] = None
+        self.service_account = False
+        if not self.config['rubrik_cdm_password']:
+            self.config['rubrik_cdm_node_ip'] = os.environ.get('rubrik_cdm_node_ip')
+            self.logger.warning("Node IP: {}".format(self.config['rubrik_cdm_node_ip']))
+        if not self.config['rubrik_cdm_username']:
+            self.config['rubrik_cdm_username'] = os.environ.get('rubrik_cdm_username')
+            self.logger.warning("Username: {}".format(self.config['rubrik_cdm_username']))
+        if not self.config['rubrik_cdm_password']:
+            self.config['rubrik_cdm_password'] = os.environ.get('rubrik_cdm_password')
+            self.logger.warning("Password/secret: {}".format(self.config['rubrik_cdm_password']))
+        # Check if user is a service account
+        if self.config['rubrik_cdm_username']:
+            if "User:::" in self.config['rubrik_cdm_username']:
+                self.logger.warning("Using service account...")
+                self.service_account = True
+                self.get_sa_token()
+
+
         self.logger.debug("Instantiating RubrikConnection using rubrik_cdm.Connect.")
-        self.connection = rubrik_cdm.Connect(self.config['rubrik_cdm_node_ip'], self.config['rubrik_cdm_username'], self.config['rubrik_cdm_password'], self.config['rubrik_cdm_token'])
+        if self.service_account:
+            self.connection = rubrik_cdm.Connect(self.config['rubrik_cdm_node_ip'], None, None, self.config['rubrik_cdm_token'])
+        else:
+            self.connection = rubrik_cdm.Connect(self.config['rubrik_cdm_node_ip'], self.config['rubrik_cdm_username'], self.config['rubrik_cdm_password'], self.config['rubrik_cdm_token'])
         self.cluster = self.connection.get('v1', '/cluster/me')
         self.name = self.cluster['name']
         self.cluster_id = self.cluster['id']
         self.timezone = self.cluster['timezone']['timezone']
         self.version = self.cluster['version']
         self.logger.info("Connected to cluster: {}, version: {}, Timezone: {}.".format(self.name, self.version, self.timezone))
+
+
+    def get_sa_token(self):
+        payload = {
+            "serviceAccountId": self.config['rubrik_cdm_username'],
+            "secret": self.config['rubrik_cdm_password']
+        }
+        payload = json.dumps(payload)
+        self.logger.warning(payload)
+        _headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+        response = requests.post(
+            "https://" + self.config['rubrik_cdm_node_ip'] + "/api/v1/service_account/session",
+            verify=False,
+            data=payload,
+            headers=_headers
+        )
+
+        self.logger.warning("Requests response: {}".format(response))
+        response_json = response.json()
+        self.logger.warning("Requests response json: {}".format(response_json))
+        if 'token' not in response_json:
+            print("Token not found")
+            exit(1)
+        else:
+            print("Access Token: {}".format(response_json['token']))
+
+        self.config['rubrik_cdm_token'] = response_json['token']
+
+
+    def delete_session(self):
+        self.logger.warning("Deleting Session")
+        response = self.connection.delete('v1', '/session/me')
+        self.logger.debug("Session deleted. Response: {}".format(response))
 
 
 class RubrikRbsOracleDatabase:
