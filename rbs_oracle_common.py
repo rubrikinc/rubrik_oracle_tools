@@ -132,9 +132,10 @@ class RubrikConnection:
 
 
     def delete_session(self):
-        self.logger.warning("Deleting Session")
-        response = self.connection.delete('v1', '/session/me')
-        self.logger.debug("Session deleted. Response: {}".format(response))
+        if self.service_account:
+            self.logger.warning("Deleting Session")
+            response = self.connection.delete('v1', '/session/me')
+            self.logger.debug("Session deleted. Response: {}".format(response))
 
 
 class RubrikRbsOracleDatabase:
