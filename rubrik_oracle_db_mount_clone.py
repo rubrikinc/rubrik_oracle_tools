@@ -79,6 +79,7 @@ def cli(source_host_db, host_target, time_restore, new_oracle_name, debug_level)
         raise RubrikOracleDBMountCloneError("The ORACLE_HOME: {} does not exist on the target host: {}".format(oracle_home, host_target))
     database.oracle_db_rename(source_host_db[1], oracle_home, new_oracle_name)
     print("DB Live Mount with  name {} complete.".format(new_oracle_name))
+    rubrik.delete_session()
     return
 
 

@@ -50,6 +50,7 @@ def cli(source_host_db, wait, debug_level):
             cluster_timezone)
         fmt = '%Y-%m-%d %H:%M:%S %Z'
         print("Oracle Log Backup {} \nStatus: {}, Started at {}.".format(oracle_log_backup_info['id'], oracle_log_backup_info['status'], start_time.strftime(fmt)))
+    rubrik.delete_session()
     return oracle_log_backup_info
 
 

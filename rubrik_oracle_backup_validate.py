@@ -79,6 +79,7 @@ def cli(source_host_db, time_restore, host_target, wait, debug_level):
                 "Database validate did not complete successfully. Mount ended with status {}".format(
                     oracle_validate_info['status']))
         logger.warning("Database validate job completed.")
+        rubrik.delete_session()
         return oracle_validate_info
 
 

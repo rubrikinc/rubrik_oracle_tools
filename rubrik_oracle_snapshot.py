@@ -62,6 +62,7 @@ def cli(source_host_db, force, sla, wait, debug_level):
             cluster_timezone)
         fmt = '%Y-%m-%d %H:%M:%S %Z'
         logging.warning("Oracle Database snapshot {} \nStatus: {}, Started at {}.".format(oracle_snapshot_info['id'], oracle_snapshot_info['status'], start_time.strftime(fmt)))
+    rubrik.delete_session()
     return oracle_snapshot_info
 
 

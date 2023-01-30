@@ -152,6 +152,7 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
     fmt = '%Y-%m-%d %H:%M:%S %Z'
     logger.debug("Database clone status: {0}, Started at {1}.".format(db_clone_info['status'], start_time.strftime(fmt)))
     if not wait:
+        rubrik.delete_session()
         return db_clone_info
     else:
         db_clone_info = database.async_requests_wait(db_clone_info['id'], wait_time)
@@ -161,6 +162,7 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
                 "Clone of Oracle DB did not complete successfully. Clone ended with status {}".format(
                     db_clone_info['status']))
         logger.warning("Clone of the database has completed.")
+        rubrik.delete_session()
         return db_clone_info
 
 

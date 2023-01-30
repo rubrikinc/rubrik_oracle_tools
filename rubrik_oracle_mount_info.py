@@ -42,6 +42,7 @@ def cli(source_host_db, mounted_host, debug_level):
             print("Source DB: {}  Source Host: {}  Mounted Host: {}  Owner: {}  Created: {}  Status: {}  id: {}".format(
                 source_host_db[1], source_host_db[0], mounted_host, mount_information.get('ownerName', 'None'),
                 mount_information['creationDate'], mount_information['status'], mount_information['id']))
+        rubrik.delete_session()
         return
 
 

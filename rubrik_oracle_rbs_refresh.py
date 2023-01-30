@@ -92,7 +92,7 @@ def cli(source_host_db, no_wait, debug_level):
         refresh_response = host.refresh()
         logger.debug("Host Refresh complete: {0}".format(refresh_response))
         logger.warning("Host Refresh complete!")
-
+    rubrik.delete_session()
     return refresh_response
 
 

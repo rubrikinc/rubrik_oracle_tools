@@ -74,6 +74,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait,
     logger.info("No wait flag is set to {}.".format(no_wait))
     if no_wait:
         logger.warning("Live mount id: {} Mount status: {}.".format(live_mount_info['id'], live_mount_info['status']))
+        rubrik.delete_session()
         return live_mount_info
     else:
         live_mount_info = database.async_requests_wait(live_mount_info['id'], 12)
@@ -83,6 +84,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait,
                 "Mount of backup files did not complete successfully. Mount ended with status {}".format(
                     live_mount_info['status']))
         logger.warning("Live mount of the backup files completed.")
+        rubrik.delete_session()
         return live_mount_info
 
 

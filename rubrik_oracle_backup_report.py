@@ -58,6 +58,7 @@ def cli(debug_level):
     print("*" * 110)
     print(tabulate(element_list, headers=db_headers))
     print('\r\r\r')
+    rubrik.delete_session()
     overall_timer.stop()
 
 def get_db_data(id):

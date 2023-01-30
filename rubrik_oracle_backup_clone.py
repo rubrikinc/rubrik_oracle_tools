@@ -270,6 +270,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -m /u02/oradata/restore -n 
         logger.warning("Backups unmounted")
 
     logger.warning("Database clone complete")
+    rubrik.delete_session()
     return
 
 

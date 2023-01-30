@@ -235,6 +235,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     logger.info(database.sqlplus_sysdba(oracle_home, 'startup mount'))
     logger.info(database.sqlplus_sysdba(oracle_home, 'alter database open resetlogs;'))
     logger.warning("Database live mount complete")
+    rubrik.delete_session()
     return
 
 

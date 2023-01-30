@@ -85,7 +85,7 @@ Resume will restore the last SLA Domain Policy applied (at the last snapshot). I
     else:
         logger.waring("No action [pause, resume] was supplied")
         raise RubrikOracleManageProtectionError("No action [pause, resume] was supplied")
-
+    rubrik.delete_session()
     return
 
 

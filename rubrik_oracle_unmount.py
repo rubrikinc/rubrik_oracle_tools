@@ -97,6 +97,7 @@ def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait,  d
         raise RubrikOracleUnmountError( "Multiple live mounts found for {} live mounted on {}. "
                                             "Use --all_mounts or --id_mounts to unmount all or some of the mounts "
                                             .format(source_host_db[1], mounted_host))
+    rubrik.delete_session()
     return unmount_info
 
 

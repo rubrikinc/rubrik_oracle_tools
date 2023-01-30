@@ -66,6 +66,7 @@ def cli(source_host_db, mounted_host, new_oracle_name, oracle_home, all_mounts, 
             logger.warning("Live mount of backup data files with id: {} has been unmounted.".format(live_mount_ids[0]))
         mount.oracle_db_clone_cleanup(new_oracle_name[0], oracle_home)
         logger.warning("Clone database {} has been dropped.".format(new_oracle_name[0]))
+        rubrik.delete_session()
         return
     elif len(live_mount_ids) > 1 and all_mounts:
         logger.warning("Delete all mounts is set to {}. Deleting all mounts on {}".format(all_mounts, mounted_host))
@@ -83,6 +84,7 @@ def cli(source_host_db, mounted_host, new_oracle_name, oracle_home, all_mounts, 
         for name in new_oracle_name:
             mount.oracle_db_clone_cleanup(name, oracle_home)
             logger.warning("Clone database {} has been dropped.".format(name))
+        rubrik.delete_session()
         return
     else:
         raise RubrikOracleCloneUnmountError( "Multiple live mounts found for source database {} live mounted on {}. "

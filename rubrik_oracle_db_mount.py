@@ -114,6 +114,7 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_
     fmt = '%Y-%m-%d %H:%M:%S %Z'
     logger.debug("Live mount status: {0}, Started at {1}.".format(live_mount_info['status'], start_time.strftime(fmt)))
     if no_wait:
+        rubrik.delete_session()
         return live_mount_info
     else:
         live_mount_info = database.async_requests_wait(live_mount_info['id'], 12)
@@ -123,6 +124,7 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_
                 "Mount of Oracle DB did not complete successfully. Mount ended with status {}".format(
                     live_mount_info['status']))
         logger.warning("Live mount of the backup files completed.")
+        rubrik.delete_session()
         return live_mount_info
 
 
