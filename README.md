@@ -85,13 +85,25 @@ pip install --editable .
 Edit the config.json file with the Rubrik CDM connection parameters or set those parameters as environmental variable (see instructions at build.rubrik.com)
 You must provide the Rubrik CDM address or an IP in the cluster and either an API token or a user/password.
 
-#### Example config.json file:
+If you are using a Rubrik Service Account, set the user to the Service Account user id and the password to the Service Account
+secret in ether the environmental variables or the config file. Note that in the 8.0 release the Service Account must have 
+Administrator Privileges (not recommended) to release the token. If the token is not released you can use 10 per day unless
+you have support raise that limit. 
+
+If you have mandatory TOTP enable you will not be able to use a user/password unless that is a Service Account user/secret.
+
+#### Example config.json file using Service Account:
 ```
 {
   "rubrik_cdm_node_ip": "",
   "rubrik_cdm_token": "",
+<<<<<<< HEAD
   "rubrik_cdm_username": "",
   "rubrik_cdm_password": ""
+=======
+  "rubrik_cdm_username": "User:::ba47ec7b-04325-486b-b173-f89a2e00720c",
+  "rubrik_cdm_password": "g0UNcrUr1OEqywNonjRVzltv3755IdslafkjdslkajsdfalPpwi4jvj0WUnK4TD8gCRdrb/0Gg/EYJUQcs02QD6shOIfY"
+>>>>>>> 82eb1eb (Added service account notes.)
 }
 ```
 You should probably restrict access to the config.json file
