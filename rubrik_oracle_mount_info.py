@@ -10,11 +10,11 @@ import sys
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
 def cli(source_host_db, mounted_host, debug_level):
     """
-    This will unmount a Rubrik live mount using the database name and the live mount host.
+    This will print the information about a Rubrik live mount using the database name and the live mount host.
 
 \b
     Returns:
-        unmount_info (dict): Status of the unmount request.
+        
     """
     numeric_level = getattr(logging, debug_level.upper(), None)
     if not isinstance(numeric_level, int):
