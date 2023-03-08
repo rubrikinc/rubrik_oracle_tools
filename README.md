@@ -149,11 +149,9 @@ Options:
 rubrik_oracle_mount_info --help
 Usage: rubrik_oracle_mount_info [OPTIONS]
 
-      This will unmount a Rubrik live mount using the database name and the
-      live mount host.
+      This will print the information about a Rubrik live mount using the database name and the live mount host.
 
       Returns:
-          unmount_info (dict): Status of the unmount request.
 
 
 Options:
