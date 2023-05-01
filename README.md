@@ -88,10 +88,10 @@ You must provide the Rubrik CDM address or an IP in the cluster and either an AP
 #### Example config.json file:
 ```
 {
-  "rubrik_cdm_node_ip": "10.1.1.20",
+  "rubrik_cdm_node_ip": "",
   "rubrik_cdm_token": "",
-  "rubrik_cdm_username": "oraclesvc",
-  "rubrik_cdm_password": "RubrikRules"
+  "rubrik_cdm_username": "",
+  "rubrik_cdm_password": ""
 }
 ```
 You should probably restrict access to the config.json file
