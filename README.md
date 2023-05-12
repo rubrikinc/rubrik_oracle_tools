@@ -97,13 +97,11 @@ If you have mandatory TOTP enable you will not be able to use a user/password un
 {
   "rubrik_cdm_node_ip": "",
   "rubrik_cdm_token": "",
-<<<<<<< HEAD
   "rubrik_cdm_username": "",
   "rubrik_cdm_password": ""
 =======
   "rubrik_cdm_username": "User:::ba47ec7b-04325-486b-b173-f89a2e00720c",
   "rubrik_cdm_password": "g0UNcrUr1OEqywNonjRVzltv3755IdslafkjdslkajsdfalPpwi4jvj0WUnK4TD8gCRdrb/0Gg/EYJUQcs02QD6shOIfY"
->>>>>>> 82eb1eb (Added service account notes.)
 }
 ```
 You should probably restrict access to the config.json file
