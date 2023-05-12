@@ -90,6 +90,9 @@ secret in ether the environmental variables or the config file. Note that in the
 Administrator Privileges (not recommended) to release the token. If the token is not released you can use 10 per day unless
 you have support raise that limit. 
 
+A Rubrik Service Account user will start with "User:::". That prefix will switch the configuration to use the service account 
+to obtain the on time token. 
+
 If you have mandatory TOTP enable you will not be able to use a user/password unless that is a Service Account user/secret.
 
 #### Example config.json file using Service Account:
@@ -100,8 +103,8 @@ If you have mandatory TOTP enable you will not be able to use a user/password un
   "rubrik_cdm_username": "",
   "rubrik_cdm_password": ""
 =======
-  "rubrik_cdm_username": "User:::ba47ec7b-04325-486b-b173-f89a2e00720c",
-  "rubrik_cdm_password": "g0UNcrUr1OEqywNonjRVzltv3755IdslafkjdslkajsdfalPpwi4jvj0WUnK4TD8gCRdrb/0Gg/EYJUQcs02QD6shOIfY"
+  "rubrik_cdm_username": "",
+  "rubrik_cdm_password": ""
 }
 ```
 You should probably restrict access to the config.json file
