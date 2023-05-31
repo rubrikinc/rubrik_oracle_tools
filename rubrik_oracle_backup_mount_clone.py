@@ -118,6 +118,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     logger.debug("Creating new temporary init file {}".format(init_file))
     with open(init_file, 'w') as file:
         file.write('db_name={}\n'.format(source_host_db[1]))
+        file.write('shared_pool_size=503736000')
     logger.debug("Setting env variable ORACLE_HOME={}, ORACLE_SID={}.".format(oracle_home, new_oracle_name))
     os.environ["ORACLE_HOME"] = oracle_home
     os.environ["ORACLE_SID"] = new_oracle_name
