@@ -118,6 +118,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     logger.debug("Creating new temporary init file {}".format(init_file))
     with open(init_file, 'w') as file:
         file.write('db_name={}\n'.format(source_host_db[1]))
+        file.write('db_unique_name={}\n'.format(new_oracle_name))
         file.write('shared_pool_size=503736000')
     logger.debug("Setting env variable ORACLE_HOME={}, ORACLE_SID={}.".format(oracle_home, new_oracle_name))
     os.environ["ORACLE_HOME"] = oracle_home
@@ -151,8 +152,8 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     move_redo_sql = """
         SET SERVEROUTPUT ON
         DECLARE
-            l_oracle_files_path VARCHAR2(50):= '{}';
-            l_new_member VARCHAR2(60);
+            l_oracle_files_path VARCHAR2(350):= '{}';
+            l_new_member VARCHAR2(360);
             l_sql_stmt VARCHAR2(200);
             CURSOR c_redo_files IS
             select member,
@@ -177,8 +178,8 @@ def cli(source_host_db, mount_path, time_restore, host_target, oracle_home, new_
     move_temp_sql = """
         SET SERVEROUTPUT ON
         DECLARE
-            l_oracle_files_path VARCHAR2(50):= '{}';
-            l_new_file VARCHAR2(60);
+            l_oracle_files_path VARCHAR2(350):= '{}';
+            l_new_file VARCHAR2(360);
             l_sql_stmt VARCHAR2(200);
             CURSOR c_temp_files IS
             select name,
