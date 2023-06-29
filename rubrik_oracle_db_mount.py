@@ -1,3 +1,5 @@
+import json
+
 import rbs_oracle_common
 import click
 import logging
@@ -56,56 +58,63 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_
     else:
         logger.warning("Using most recent recovery point for mount.")
         time_ms = database.epoch_time(oracle_db_info['latestRecoveryPoint'], rubrik.timezone)
-    aco_config = None
-    aco_parameters = None
-    base64_aco_file = None
+    aco_config_map = None
+    aco_parameters = []
     if aco_file_path:
         logger.warning("Using ACO File: {}".format(aco_file_path))
-        aco_config = ConfigParser()
-        with open(aco_file_path) as f:
-            aco_config.read_string('[ACO]' + f.read())
-        logger.debug("ACO Config: {0}".format(aco_config.items('ACO')))
-        aco_parameters = aco_config.items('ACO')
-        if not database.v6:
-            try:
-                aco_file = open(aco_file_path, "r").read()
-            except IOError as e:
-                raise RubrikOracleDBMountError("I/O error({0}): {1}".format(e.errno, e.strerror))
-            except Exception:
-                raise RubrikOracleDBMountError("Unexpected error: {}".format(sys.exc_info()[0]))
-            base64_aco_byte_file = base64.b64encode(aco_file.encode("utf-8"))
-            base64_aco_file = str(base64_aco_byte_file, "utf-8")
+        try:
+            with open(aco_file_path) as f:
+                for curline in f:
+                    curline = curline.strip()
+                    if not curline.startswith("#") and curline != '':
+                        curline = curline.replace("'", '')
+                        curline = curline.replace('"', '')
+                        aco_parameters.append(curline.split("="))
+        except IOError as e:
+            rubrik.delete_session()
+            raise RubrikOracleDBMountError("I/O error({0}): {1}".format(e.errno, e.strerror))
+        except Exception:
+            rubrik.delete_session()
+            raise RubrikOracleDBMountError("Unexpected error: {}".format(sys.exc_info()[0]))
+        aco_config_map = {}
+        for config in aco_parameters:
+            aco_config_map[config[0]] = config[1]
+        logger.debug(aco_config_map)
     if pfile:
         logger.warning("Using custom PFILE File: {}.".format(pfile))
         if aco_parameters:
-            logger.debug("ACO Parameters: {0}".format(aco_parameters))
+            logger.debug("Using ACO file with PFILE.")
             for config in aco_parameters:
+                logger.debug(config)
                 if config[0].upper() != 'ORACLE_HOME' and config[0].upper() != 'SPFILE_LOCATION' and config[0][:-1].upper() != 'DB_CREATE_ONLINE_LOG_DEST_':
+                    rubrik.delete_session()
                     raise RubrikOracleDBMountError("When using a custom PFILE the only parameters allowed in the ACO file are ORACLE_HOME, SPFILE_LOCATION and DB_CREATE_ONLINE_LOG_DEST_*.")
     logger.debug("dataGuardType is {0}".format(oracle_db_info['dataGuardType']))
     # If source is a Data Guard Group, check to be sure an ORACLE_HOME is provided
     if oracle_db_info['dataGuardType'] == 'DataGuardGroup':
         if oracle_home:
             logger.debug("DG GROUP USING ORACLE_HOME OPTION")
-        elif aco_config:
+        elif aco_config_map:
             logger.debug("Source is a DG Group and ACO File is being used. Checking for ORACLE_HOME...")
-            if aco_config.has_option('ACO','ORACLE_HOME'):
-                logger.debug("ORACLE_HOME: {0} is present in the ACO File.".format(aco_config.get('ACO','ORACLE_HOME')))
-                oracle_home = aco_config.get('ACO', 'ORACLE_HOME')
+            if 'ORACLE_HOME' in aco_config_map:
+                logger.debug("ORACLE_HOME: {0} is present in the ACO File.".format(aco_config_map['ORACLE_HOME']))
+                oracle_home = aco_config_map['ORACLE_HOME']
             else:
                 logger.warning("ORACLE_HOME is not set in the ACO File: {0} or provided as an option.".format(aco_file_path))
+                rubrik.delete_session()
                 raise RubrikOracleDBMountError("When cloning a DG Group database, the ORACLE_HOME must be provided")
         else:
             logger.warning("ORACLE_HOME must be specified for a DG Group.")
+            rubrik.delete_session()
             raise RubrikOracleDBMountError("When cloning a DG Group database, the ORACLE_HOME must be provided")
     if oracle_home and database.v6:
-        logger.debug("ORACLE_HOME is {0}".format(oracle_home))
+        logger.debug("Post 6.0 CDM ORACLE_HOME is supported")
     elif oracle_home:
+        rubrik.delete_session()
         raise RubrikOracleDBMountError("The Oracle Home parameter is not supported with pre 6.0 CDM.")
-
     logger.warning("Starting Live Mount of {0} on {1}.".format(source_host_db[1], host_target))
     logger.debug("db_clone parameters host_id={0}, time_ms={1}, pfile={2}, aco_file_path={3}, oracle_home={4}".format(host_id, time_ms, pfile, aco_file_path, oracle_home))
-    live_mount_info = database.live_mount(host_id=host_id, time_ms=time_ms, pfile=pfile, aco_file=base64_aco_file, oracle_home=oracle_home)
+    live_mount_info = database.live_mount(host_id=host_id, time_ms=time_ms, pfile=pfile, aco_config_map=aco_config_map, oracle_home=oracle_home)
     logger.debug(live_mount_info)
     # Set the time format for the printed result
     cluster_timezone = pytz.timezone(rubrik.timezone)
@@ -117,9 +126,10 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_
         rubrik.delete_session()
         return live_mount_info
     else:
-        live_mount_info = database.async_requests_wait(live_mount_info['id'], 12)
+        live_mount_info = database.async_requests_wait(live_mount_info['id'], 20)
         logger.warning("Async request completed with status: {}".format(live_mount_info['status']))
         if live_mount_info['status'] != "SUCCEEDED":
+            rubrik.delete_session()
             raise RubrikOracleDBMountError(
                 "Mount of Oracle DB did not complete successfully. Mount ended with status {}".format(
                     live_mount_info['status']))
