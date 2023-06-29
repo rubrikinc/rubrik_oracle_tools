@@ -357,11 +357,12 @@ class RubrikRbsOracleDatabase:
             }
         if pfile:
             payload["customPfilePath"] = pfile.replace("'", "")
-        if aco_config_map:
-            payload["advancedRecoveryConfigMap"] = aco_config_map
         if oracle_home:
             self.logger.debug("Oracle Home provided: {0}".format(oracle_home))
-            payload["advancedRecoveryConfigMap"] = {"ORACLE_HOME": oracle_home.replace("'", "")}
+            aco_config_map = {}
+            aco_config_map['ORACLE_HOME'] = oracle_home
+        if aco_config_map:
+            payload["advancedRecoveryConfigMap"] = aco_config_map
         self.logger.debug("RBS oracle common payload: {}".format(payload))
         live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         return live_mount_info

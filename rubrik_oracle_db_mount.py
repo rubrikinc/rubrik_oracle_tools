@@ -70,6 +70,7 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_
                         curline = curline.replace("'", '')
                         curline = curline.replace('"', '')
                         aco_parameters.append(curline.split("="))
+                        logger.debug("aco_file line: {}".format(curline))
         except IOError as e:
             rubrik.delete_session()
             raise RubrikOracleDBMountError("I/O error({0}): {1}".format(e.errno, e.strerror))
@@ -98,7 +99,6 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_
             logger.debug("Source is a DG Group and ACO File is being used. Checking for ORACLE_HOME...")
             if 'ORACLE_HOME' in aco_config_map:
                 logger.debug("ORACLE_HOME: {0} is present in the ACO File.".format(aco_config_map['ORACLE_HOME']))
-                oracle_home = aco_config_map['ORACLE_HOME']
             else:
                 logger.warning("ORACLE_HOME is not set in the ACO File: {0} or provided as an option.".format(aco_file_path))
                 rubrik.delete_session()
@@ -113,7 +113,7 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_
         rubrik.delete_session()
         raise RubrikOracleDBMountError("The Oracle Home parameter is not supported with pre 6.0 CDM.")
     logger.warning("Starting Live Mount of {0} on {1}.".format(source_host_db[1], host_target))
-    logger.debug("db_clone parameters host_id={0}, time_ms={1}, pfile={2}, aco_file_path={3}, oracle_home={4}".format(host_id, time_ms, pfile, aco_file_path, oracle_home))
+    logger.debug("db_clone parameters host_id={0}, time_ms={1}, pfile={2}, aco_config_map={3}, oracle_home={4}".format(host_id, time_ms, pfile, aco_config_map, oracle_home))
     live_mount_info = database.live_mount(host_id=host_id, time_ms=time_ms, pfile=pfile, aco_config_map=aco_config_map, oracle_home=oracle_home)
     logger.debug(live_mount_info)
     # Set the time format for the printed result
