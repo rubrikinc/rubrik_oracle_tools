@@ -69,7 +69,7 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_
                     if not curline.startswith("#") and curline != '':
                         curline = curline.replace("'", '')
                         curline = curline.replace('"', '')
-                        aco_parameters.append(curline.split("="))
+                        aco_parameters.append(curline.split("=",1))
                         logger.debug("aco_file line: {}".format(curline))
         except IOError as e:
             rubrik.delete_session()
