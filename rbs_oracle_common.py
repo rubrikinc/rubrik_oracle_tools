@@ -70,7 +70,7 @@ class RubrikConnection:
                 if not (self.config[setting] and self.config[setting].strip()):
                     self.config[setting] = None
         self.service_account = False
-        if not self.config['rubrik_cdm_password']:
+        if not self.config['rubrik_cdm_node_ip']:
             self.config['rubrik_cdm_node_ip'] = os.environ.get('rubrik_cdm_node_ip')
         if not self.config['rubrik_cdm_username']:
             self.config['rubrik_cdm_username'] = os.environ.get('rubrik_cdm_username')
