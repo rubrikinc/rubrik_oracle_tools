@@ -886,6 +886,58 @@ class RubrikRbsOracleMount(RubrikRbsOracleDatabase):
         live_mount_delete_info = self.rubrik.connection.delete('internal', '/oracle/db/mount/{}?force={}'.format(live_mount_id, force))
         return live_mount_delete_info
 
+
+class RubrikRbsRplOracleMount():
+    """
+    Rubrik RBS (snappable) Oracle backup object.
+    """
+    def __init__(self, rubrik, database,  target_host):
+        self.logger = logging.getLogger(__name__ + '.RubrikRbsOracleMount')
+        self.rubrik = rubrik
+        self.database = database
+        self.target_host = target_host
+
+    def get_oracle_live_mount_id(self):
+        """
+        This will search for and retrieve the live mount id for a live mount of the database on the host.
+
+        Args:
+            self (object): Database Object
+        Returns:
+            live_mount_id (str): The id of the requested live mount.
+        """
+        oracle_live_mounts = self.rubrik.connection.get('internal', '/oracle/db/mount?source_database_name={}'.format(self.database))
+        live_mount_ids = []
+        for live_mount in oracle_live_mounts['data']:
+            if RubrikRbsOracleDatabase.match_hostname(live_mount['targetHostname'], self.target_host):
+                live_mount_ids.append(live_mount['id'])
+        if live_mount_ids:
+            return live_mount_ids
+
+
+    def get_live_mount_info(self, live_mount_id):
+        """
+        Gets all the information about the live mount using the live mount id.
+        """
+        live_mount_info = self.rubrik.connection.get('internal', '/oracle/db/mount/{}'.format(live_mount_id))
+        return live_mount_info
+
+    def live_mount_delete(self, live_mount_id, force=False):
+        """
+        This will unmount a live mounted database or backup set.
+
+        Args:
+            self (object): Database Object
+            live_mount_id (str): The id of the mount to remove,
+            force (bool): Set to true to force the unmount.
+
+        Returns:
+            live_mount_delete_info (dict): The information returned from the Rubrik CDM about the requested unmount.
+        """
+        live_mount_delete_info = self.rubrik.connection.delete('internal', '/oracle/db/mount/{}?force={}'.format(live_mount_id, force))
+        return live_mount_delete_info
+
+
 class RubrikRbsOracleHost:
     """
     Rubrik RBS (snappable) Oracle Host object.
