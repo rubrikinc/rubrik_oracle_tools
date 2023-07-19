@@ -145,7 +145,7 @@ class RubrikRbsOracleDatabase:
     """
     Rubrik RBS (snappable) Oracle backup object.
     """
-    def __init__(self, rubrik, database_name, database_host, timeout=180):
+    def __init__(self, rubrik, database_name, database_host, timeout=180, id=None):
         self.logger = logging.getLogger(__name__ + '.RubrikRbsOracleDatabase')
         self.cdm_timeout = timeout
         self.database_name = database_name
@@ -157,7 +157,10 @@ class RubrikRbsOracleDatabase:
         else:
             self.v6 = False
             self.v6_deprecated = 'internal'
-        self.oracle_id = self.get_oracle_db_id()
+        if id:
+            self.oracle_id = id
+        else:
+            self.oracle_id = self.get_oracle_db_id()
 
     def get_oracle_db_id(self):
         """
@@ -180,6 +183,7 @@ class RubrikRbsOracleDatabase:
         # Instance names can be stored/entered with and without the domain name so
         # we will compare the hostname without the domain.
         if self.is_ip(self.database_host):
+            self.rubrik.delete_session()
             raise RbsOracleCommonError("A hostname is required for the Oracle host, do not use an IP address.")
         oracle_id = None
         if oracle_dbs['total'] == 0 and self.v6:
@@ -193,6 +197,7 @@ class RubrikRbsOracleDatabase:
                     self.db_unique_name = True
             self.logger.debug("Databases found for database unique name {}: {}".format(self.database_name, oracle_dbs))
         if oracle_dbs['total'] == 0:
+            self.rubrik.delete_session()
             raise RbsOracleCommonError(
                 "The {} object '{}' was not found on the Rubrik cluster.".format(self.database_name, self.database_host))
         elif oracle_dbs['total'] > 0:
@@ -226,9 +231,11 @@ class RubrikRbsOracleDatabase:
             return oracle_id
         else:
             if self.db_unique_name:
+                self.rubrik.delete_session()
                 raise RbsOracleCommonError(
                     "No ID found for a database with DB Unique Name {} running on host {}.".format(self.database_name, self.database_host))
             else:
+                self.rubrik.delete_session()
                 raise RbsOracleCommonError("No ID found for a database with name {} running on host {}.".format(self.database_name, self.database_host))
 
     def get_oracle_db_info(self):
@@ -893,6 +900,7 @@ class RubrikRbsRplOracleMount():
     """
     def __init__(self, rubrik, database,  target_host):
         self.logger = logging.getLogger(__name__ + '.RubrikRbsOracleMount')
+        self.cdm_timeout = 180
         self.rubrik = rubrik
         self.database = database
         self.target_host = target_host
@@ -936,6 +944,23 @@ class RubrikRbsRplOracleMount():
         """
         live_mount_delete_info = self.rubrik.connection.delete('internal', '/oracle/db/mount/{}?force={}'.format(live_mount_id, force))
         return live_mount_delete_info
+
+    def async_requests_wait(self, requests_id, timeout):
+        timeout_start = time.time()
+        terminal_states = ['FAILED', 'CANCELED', 'SUCCEEDED']
+        oracle_request = None
+        while time.time() < timeout_start + (timeout * 60):
+            oracle_request = self.rubrik.connection.get('internal', '/oracle/request/{}'.format(requests_id), timeout=self.cdm_timeout)
+            if oracle_request['status'] in terminal_states:
+                break
+            with yaspin(Spinners.line, text='Request status: {}'.format(oracle_request['status'])):
+                time.sleep(10)
+        if oracle_request['status'] not in terminal_states:
+            raise RbsOracleCommonError(
+                "\nTimeout: Async request status has been {0} for longer than the timeout period of {1} minutes. The request will remain active (current status: {0})  and the script will exit.".format(
+                    oracle_request['status'], timeout))
+        else:
+            return oracle_request
 
 
 class RubrikRbsOracleHost:
