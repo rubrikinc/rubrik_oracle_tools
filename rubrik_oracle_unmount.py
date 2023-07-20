@@ -8,10 +8,10 @@ import sys
 @click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
 @click.option('--mounted_host', '-m', type=str, required=True,  help='The host with the live mount to remove')
 @click.option('--force', '-f', is_flag=True, help='Force unmount')
-@click.option('--all_mounts', '-a', is_flag=True, help='Unmount all mounts from the source host:db. Provide all the clone names separated by commas.')
+@click.option('--all_mounts', '-a', is_flag=True, help='Unmount all mounts of the database on the target host.')
 @click.option('--id_unmount', '-i', help='Unmount a specific mount using the mount id. Multiple ids seperated by commas. ')
 @click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
-@click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
+@click.option('--debug_level', '-d',  type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
 def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait,  debug_level):
     """
     Unmount a Rubrik database or files live mount using the database name and the live mount host.
@@ -38,25 +38,30 @@ def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait,  d
     logger.addHandler(ch)
 
     rubrik = rbs_oracle_common.RubrikConnection()
+    source_host_db = source_host_db.split(":")
+    database = source_host_db[1]
     if id_unmount:
         id_unmount = id_unmount.split(",")
     else:
         id_unmount = []
-    source_host_db = source_host_db.split(":")
-    logger.info("Checking for live mounts of source db {} on host {}".format(source_host_db[1], mounted_host))
-    mount = rbs_oracle_common.RubrikRbsOracleMount(rubrik, source_host_db[1], source_host_db[0], mounted_host)
+    logger.info("Checking for live mounts of source db {} on host {}".format(database, mounted_host))
+    mount = rbs_oracle_common.RubrikRbsRplOracleMount(rubrik, database, mounted_host)
     live_mount_ids = mount.get_oracle_live_mount_id()
+    logger.debug("Live Mount IDs found: {}".format(live_mount_ids))
     unmount_info = []
     if not live_mount_ids:
+        rubrik.delete_session()
         raise RubrikOracleUnmountError(
-            "No live mounts found for {} live mounted on {}. ".format(source_host_db[1], mounted_host))
+            "No live mounts found for {} live mounted on {}. ".format(database, mounted_host))
     elif len(live_mount_ids) == 0:
+        rubrik.delete_session()
         raise RubrikOracleUnmountError(
-            "No live mounts found for {} live mounted on {}. ".format(source_host_db[1], mounted_host))
+            "No live mounts found for {} live mounted on {}. ".format(database, mounted_host))
     elif len(live_mount_ids) == 1:
         logger.warning("Found live mount id: {} on {}".format(live_mount_ids[0], mounted_host))
         logger.warning("Deleting live mount.")
         delete_request = mount.live_mount_delete(live_mount_ids[0], force)
+        logger.debug("Delete_request: {}".format(delete_request))
         if no_wait:
             logger.warning("Live mount id: {} Unmount status: {}.".format(live_mount_ids[0], delete_request['status']))
         else:

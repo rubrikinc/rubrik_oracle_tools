@@ -40,7 +40,76 @@ def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait,
 
     rubrik = rbs_oracle_common.RubrikConnection()
     source_host_db = source_host_db.split(":")
-    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0], timeout)
+    query = """query OracleDatabase($name: String, $effectiveSlaDomainId: String, $slaAssignment: String, $primaryClusterId: String, $isRelic: Boolean, $shouldIncludeDataGuardGroups: Boolean, $first: Int, $after: String, $sortBy: String, $sortOrder: String) {
+              oracleDatabaseConnection(name: $name, effectiveSlaDomainId: $effectiveSlaDomainId, slaAssignment: $slaAssignment, primaryClusterId: $primaryClusterId, isRelic: $isRelic, shouldIncludeDataGuardGroups: $shouldIncludeDataGuardGroups, first: $first, after: $after, sortBy: $sortBy, sortOrder: $sortOrder) {
+                nodes {
+                  id
+                  name
+                  sid
+                  racId
+                  databaseRole
+                  dbUniqueName
+                  dataGuardGroupId
+                  dataGuardGroupName
+                  standaloneHostId
+                  primaryClusterId
+                  slaAssignment
+                  configuredSlaDomainId
+                  configuredSlaDomainName
+                  effectiveSlaDomain {
+                    id
+                    name
+                    sourceId
+                    sourceName
+                    polarisManagedId
+                    isRetentionLocked
+                  }
+                  infraPath {
+                    id
+                    name
+                  }
+                  isRelic
+                  numInstances
+                  instances {
+                    hostName
+                    instanceSid
+                  }
+                  isArchiveLogModeEnabled
+                  standaloneHostName
+                  racName
+                  numTablespaces
+                  logBackupFrequencyInMinutes
+                }
+              }
+            }"""
+    variables = {
+                  "name": source_host_db[1],
+                  "sortOrder": "asc",
+                  "shouldIncludeDataGuardGroups": True
+                }
+    payload = {"query": query, "variables": variables}
+    databases = rubrik.connection.post('internal', '/graphql', payload)['data']['oracleDatabaseConnection']['nodes']
+    logger.debug("Returned databases: {}".format(databases))
+    id = None
+    if len(databases) == 0:
+        rubrik.delete_session()
+        raise RubrikOracleBackupMountError("No snapshots found for database: {}".format(source_host_db[1]))
+    elif len(databases) == 1:
+        id = databases[0]['id']
+    else:
+        for db in databases:
+            if db['standaloneHostName']:
+                logger.debug("Database hosts to match: {}, {}".format(source_host_db[0],db['standaloneHostName']))
+                if rbs_oracle_common.RubrikRbsOracleDatabase.match_hostname(source_host_db[0], db['standaloneHostName']):
+                    id = db['id']
+            elif db['racName']:
+                logger.debug("Database RAC names to match: {}, {}".format(source_host_db[0],db['racName']))
+                if rbs_oracle_common.RubrikRbsOracleDatabase.match_hostname(source_host_db[0], db['racName']):
+                    id = db['id']
+        if not id:
+            rubrik.delete_session()
+            raise RubrikOracleBackupMountError("Multiple database's snapshots found for database name: {}".format(source_host_db[1]))
+    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0], 180, id)
     oracle_db_info = database.get_oracle_db_info()
     logger.debug(oracle_db_info)
     if not host_target:
