@@ -13,8 +13,10 @@ import pytz
 @click.option('--host_target', '-h', type=str, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
 @click.option('--timeout', type=int, help='API Timeout value in seconds. Default is 180 seconds')
 @click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait, debug_level):
+def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait,keyfile, insecure, debug_level):
     """
     This will mount the requested Rubrik Oracle backup set on the provided path.
 
@@ -38,78 +40,9 @@ def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait,
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     source_host_db = source_host_db.split(":")
-    query = """query OracleDatabase($name: String, $effectiveSlaDomainId: String, $slaAssignment: String, $primaryClusterId: String, $isRelic: Boolean, $shouldIncludeDataGuardGroups: Boolean, $first: Int, $after: String, $sortBy: String, $sortOrder: String) {
-              oracleDatabaseConnection(name: $name, effectiveSlaDomainId: $effectiveSlaDomainId, slaAssignment: $slaAssignment, primaryClusterId: $primaryClusterId, isRelic: $isRelic, shouldIncludeDataGuardGroups: $shouldIncludeDataGuardGroups, first: $first, after: $after, sortBy: $sortBy, sortOrder: $sortOrder) {
-                nodes {
-                  id
-                  name
-                  sid
-                  racId
-                  databaseRole
-                  dbUniqueName
-                  dataGuardGroupId
-                  dataGuardGroupName
-                  standaloneHostId
-                  primaryClusterId
-                  slaAssignment
-                  configuredSlaDomainId
-                  configuredSlaDomainName
-                  effectiveSlaDomain {
-                    id
-                    name
-                    sourceId
-                    sourceName
-                    polarisManagedId
-                    isRetentionLocked
-                  }
-                  infraPath {
-                    id
-                    name
-                  }
-                  isRelic
-                  numInstances
-                  instances {
-                    hostName
-                    instanceSid
-                  }
-                  isArchiveLogModeEnabled
-                  standaloneHostName
-                  racName
-                  numTablespaces
-                  logBackupFrequencyInMinutes
-                }
-              }
-            }"""
-    variables = {
-                  "name": source_host_db[1],
-                  "sortOrder": "asc",
-                  "shouldIncludeDataGuardGroups": True
-                }
-    payload = {"query": query, "variables": variables}
-    databases = rubrik.connection.post('internal', '/graphql', payload)['data']['oracleDatabaseConnection']['nodes']
-    logger.debug("Returned databases: {}".format(databases))
-    id = None
-    if len(databases) == 0:
-        rubrik.delete_session()
-        raise RubrikOracleBackupMountError("No snapshots found for database: {}".format(source_host_db[1]))
-    elif len(databases) == 1:
-        id = databases[0]['id']
-    else:
-        for db in databases:
-            if db['standaloneHostName']:
-                logger.debug("Database hosts to match: {}, {}".format(source_host_db[0],db['standaloneHostName']))
-                if rbs_oracle_common.RubrikRbsOracleDatabase.match_hostname(source_host_db[0], db['standaloneHostName']):
-                    id = db['id']
-            elif db['racName']:
-                logger.debug("Database RAC names to match: {}, {}".format(source_host_db[0],db['racName']))
-                if rbs_oracle_common.RubrikRbsOracleDatabase.match_hostname(source_host_db[0], db['racName']):
-                    id = db['id']
-        if not id:
-            rubrik.delete_session()
-            raise RubrikOracleBackupMountError("Multiple database's snapshots found for database name: {}".format(source_host_db[1]))
-    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0], 180, id)
+    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0], 180)
     oracle_db_info = database.get_oracle_db_info()
     logger.debug(oracle_db_info)
     if not host_target:

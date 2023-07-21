@@ -11,8 +11,10 @@ import pytz
 @click.option('--force', '-f', is_flag=True, help='Force a new full database image level 0 backup')
 @click.option('--sla', type=str, help='Rubrik SLA Domain to use if different than the assigned SLA')
 @click.option('--wait', is_flag=True, help='Wait for backup to complete.')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, force, sla, wait, debug_level):
+def cli(source_host_db, force, sla, wait, keyfile, insecure, debug_level):
     """
     This will initiate an on demand snapshot (backup) of the database.
 
@@ -36,7 +38,7 @@ def cli(source_host_db, force, sla, wait, debug_level):
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     source_host_db = source_host_db.split(":")
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
     if sla:

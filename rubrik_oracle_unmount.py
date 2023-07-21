@@ -11,8 +11,10 @@ import sys
 @click.option('--all_mounts', '-a', is_flag=True, help='Unmount all mounts of the database on the target host.')
 @click.option('--id_unmount', '-i', help='Unmount a specific mount using the mount id. Multiple ids seperated by commas. ')
 @click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d',  type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
-def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait,  debug_level):
+def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait, keyfile, insecure, debug_level):
     """
     Unmount a Rubrik database or files live mount using the database name and the live mount host.
 
@@ -37,7 +39,7 @@ def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait,  d
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     source_host_db = source_host_db.split(":")
     database = source_host_db[1]
     if id_unmount:
