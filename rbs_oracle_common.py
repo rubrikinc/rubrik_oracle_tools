@@ -72,11 +72,13 @@ class RubrikConnection:
                 self.service_account = True
                 self.get_sa_token()
             else:
-                self.logger.debug("No keyfile found at {}".format(keyfile))
+                raise RbsOracleCommonError("No keyfile found at {}".format(keyfile))
         else:
             self.logger.debug("Loading config.json files. Using credentials if present, if not using environment variables ")
             self.config = {
                 'rubrik_cdm_node_ip': None,
+                'rubrik_cdm_username': None,
+                'rubrik_cdm_password': None,
                 'rubrik_cdm_token': None
             }
             self.__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -89,13 +91,36 @@ class RubrikConnection:
                     if not (self.config[setting] and self.config[setting].strip()):
                         self.config[setting] = None
             self.service_account = False
-        if not self.config['rubrik_cdm_node_ip']:
-            self.config['rubrik_cdm_node_ip'] = os.environ.get('rubrik_cdm_node_ip')
-        if not self.config['rubrik_cdm_token']:
-            self.config['rubrik_cdm_token'] = os.environ.get('rubrik_cdm_token')
-        self.logger.debug("Instantiating RubrikConnection using rubrik_cdm.Connect.")
+            if not self.config['rubrik_cdm_node_ip']:
+                self.config['rubrik_cdm_node_ip'] = os.environ.get('rubrik_cdm_node_ip')
+            if not self.config['rubrik_cdm_token']:
+                self.config['rubrik_cdm_token'] = os.environ.get('rubrik_cdm_token')
+            if not self.config['rubrik_cdm_username']:
+                self.config['rubrik_cdm_username'] = os.environ.get('rubrik_cdm_username')
+            if not self.config['rubrik_cdm_password']:
+                self.config['rubrik_cdm_password'] = os.environ.get('rubrik_cdm_password')
+            if not self.config['rubrik_cdm_node_ip']:
+                raise RbsOracleCommonError("No Rubrik CDM IP or URL supplied in either the config file or environmental variables.")
 
-        self.connection = rubrik_cdm.Connect(self.config['rubrik_cdm_node_ip'], None, None, self.config['rubrik_cdm_token'])
+            if not self.config['rubrik_cdm_token'] and not (self.config['rubrik_cdm_username'] and self.config['rubrik_cdm_password']):
+                raise RbsOracleCommonError("No Rubrik user/password(Service Account) or token supplied in either the config file or environmental variables.")
+            # Check if user is a service account
+            if self.config['rubrik_cdm_username']:
+                if "User:::" in self.config['rubrik_cdm_username']:
+                    self.logger.warning("Using service account...")
+                    self.service_account = True
+                    self.logger.debug("client_id: {}, client_secret: {}".format(self.config['rubrik_cdm_username'], self.config['rubrik_cdm_password']))
+                    self.config['client_id'] = self.config['rubrik_cdm_username']
+                    self.config['client_secret'] = self.config['rubrik_cdm_password']
+                    self.get_sa_token()
+                    self.config['rubrik_cdm_username'] = None
+                    self.config['rubrik_cdm_password'] = None
+
+        self.logger.debug("Instantiating RubrikConnection using rubrik_cdm.Connect.")
+        if self.service_account:
+            self.connection = rubrik_cdm.Connect(self.config['rubrik_cdm_node_ip'], None, None, self.config['rubrik_cdm_token'])
+        else:
+            self.connection = rubrik_cdm.Connect(self.config['rubrik_cdm_node_ip'], self.config['rubrik_cdm_username'], self.config['rubrik_cdm_password'], self.config['rubrik_cdm_token'])
 
         self.cluster = self.connection.get('v1', '/cluster/me')
         self.name = self.cluster['name']
@@ -287,83 +312,6 @@ class RubrikRbsOracleDatabase:
             raise RbsOracleCommonError("No ID found for a database with name {} running on host {}.".format(self.database_name,self.database_host))
 
         return id
-
-
-    # def get_oracle_db_id_old(self):
-    #     """
-    #         Get the Oracle object id from the Rubrik CDM using database name and the hostname.
-    #
-    #         This is just a wrapper on object_id function in the Rubrik CDM module.
-    #
-    #         Args:
-    #             self (object): Database Object
-    #         Returns:
-    #             oracle_db_id (str): The Rubrik database object id.
-    #         """
-    #     # This will use the rubrik_cdm module to get the id. There is a bug that is getting fixed so until
-    #     # that fix is in place get the id using a basic Get.
-    #     #     oracle_db_id = self.rubrik.connection.object_id(oracle_db_name, 'oracle_db', hostname=oracle_host_name)
-    #     #     return oracle_db_id
-    #     oracle_dbs = self.rubrik.connection.get( self.v6_deprecated, "/oracle/db?name={}".format(self.database_name), timeout=self.cdm_timeout)
-    #     self.logger.debug("Oracle DBs with name: {} returned: {}".format(self.database_name, oracle_dbs))
-    #     # Find the oracle_db object with the correct hostName or RAC cluster name.
-    #     # Instance names can be stored/entered with and without the domain name so
-    #     # we will compare the hostname without the domain.
-    #     if self.is_ip(self.database_host):
-    #         self.rubrik.delete_session()
-    #         raise RbsOracleCommonError("A hostname is required for the Oracle host, do not use an IP address.")
-    #     oracle_id = None
-    #     if oracle_dbs['total'] == 0 and self.v6:
-    #         self.logger.debug("No database found for database name {}, checking for database unique name...".format(self.database_name))
-    #         all_dbs = self.rubrik.connection.get(self.v6_deprecated, "/oracle/db".format(self.database_name), timeout=self.cdm_timeout)
-    #         for db in all_dbs['data']:
-    #         if db['dbUniqueName'].lower() == self.database_name.lower():
-    #             self.logger.debug("Found object with dbUniqueName: {}".format(db))
-    #             oracle_dbs['data'].append(db)
-    #             oracle_dbs['total'] += 1
-    #             self.db_unique_name = True
-    #     self.logger.debug("Databases found for database unique name {}: {}".format(self.database_name, oracle_dbs))
-    #     if oracle_dbs['total'] == 0:
-    #         self.rubrik.delete_session()
-    #         raise RbsOracleCommonError(
-    #             "The {} object '{}' was not found on the Rubrik cluster.".format(self.database_name, self.database_host))
-    #     elif oracle_dbs['total'] > 0:
-    #         for db in oracle_dbs['data']:
-    #             if (db['name'].lower() == self.database_name.lower() or db['dbUniqueName'].lower() == self.database_name.lower()) and db['isRelic'] == False:
-    #                 if 'standaloneHostName' in db.keys():
-    #                     if self.match_hostname(self.database_host, db['standaloneHostName']):
-    #                             oracle_id = db['id']
-    #                             if self.v6:
-    #                                 if db['dataGuardType'] == 'DataGuardMember':
-    #                                     oracle_id = db['dataGuardGroupId']
-    #                             break
-    #                 elif 'racName' in db.keys():
-    #                     if self.database_host == db['racName']:
-    #                         oracle_id = db['id']
-    #                         if self.v6:
-    #                             if db['dataGuardType'] == 'DataGuardMember':
-    #                                 oracle_id = db['dataGuardGroupId']
-    #                         break
-    #                     for instance in db['instances']:
-    #                         if self.match_hostname(self.database_host, instance['hostName']):
-    #                             oracle_id = db['id']
-    #                             if self.v6:
-    #                                 if db['dataGuardType'] == 'DataGuardMember':
-    #                                     oracle_id = db['dataGuardGroupId']
-    #                             break
-    #                     if oracle_id:
-    #                         break
-    #     if oracle_id:
-    #         self.logger.debug("Found Database id: {} for Database: {} on host or cluster {}".format(oracle_id, self.database_name, self.database_host))
-    #         return oracle_id
-    #     else:
-    #         if self.db_unique_name:
-    #             self.rubrik.delete_session()
-    #             raise RbsOracleCommonError(
-    #                 "No ID found for a database with DB Unique Name {} running on host {}.".format(self.database_name, self.database_host))
-    #         else:
-    #             self.rubrik.delete_session()
-    #             raise RbsOracleCommonError("No ID found for a database with name {} running on host {}.".format(self.database_name, self.database_host))
 
     def get_oracle_db_info(self):
         """
