@@ -11,7 +11,7 @@ import pytz
 @click.option('--mount_path', '-m', type=str, required=True, help='The path used to mount the backup files')
 @click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
 @click.option('--host_target', '-h', type=str, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
-@click.option('--timeout', type=int, help='API Timeout value in seconds. Default is 180 seconds')
+@click.option('--timeout', type=int, default=12, help='Time to wait for mount operation to complete in minutes before script timeouts. Mount will still continue after timeout.')
 @click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
 @click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
 @click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
@@ -79,7 +79,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait,
         rubrik.delete_session()
         return live_mount_info
     else:
-        live_mount_info = database.async_requests_wait(live_mount_info['id'], 12)
+        live_mount_info = database.async_requests_wait(live_mount_info['id'], timeout)
         logger.warning("Async request completed with status: {}".format(live_mount_info['status']))
         if live_mount_info['status'] != "SUCCEEDED":
             raise RubrikOracleBackupMountError(

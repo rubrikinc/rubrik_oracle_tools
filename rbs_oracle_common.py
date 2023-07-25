@@ -276,7 +276,7 @@ class RubrikRbsOracleDatabase:
                     databases.append(db)
             self.logger.debug("Databases found for database unique name {}: {}".format(self.database_name, oracle_dbs))
         if len(databases) == 0:
-            rubrik.delete_session()
+            self.rubrik.delete_session()
             raise RbsOracleCommonError("No snapshots found for database: {}".format(self.database_name))
         elif len(databases) == 1:
             if databases[0]['dataGuardGroupId']:
@@ -301,11 +301,22 @@ class RubrikRbsOracleDatabase:
                         else:
                             id = db['id']
             if not id:
+                id_list = []
                 for db in databases:
                     if db['dataGuardGroupId']:
-                        id = db['dataGuardGroupId']
+                        id_list.append(db['dataGuardGroupId'])
+                    else:
+                        id_list.append(db['id'])
+                if not id_list:
+                    self.rubrik.delete_session()
+                    raise RbsOracleCommonError("Unable to extract id from Multiple databases returned for database name: {} with no hostname/rac match".format(self.database_name))
+                if id_list.count(id_list[0]) == len(id_list):
+                    id = id_list[0]
+                else:
+                    self.rubrik.delete_session()
+                    raise RbsOracleCommonError("Unable to extract id from Multiple databases returned for database name: {} with no hostname/rac match".format(self.database_name))
             if not id:
-                rubrik.delete_session()
+                self.rubrik.delete_session()
                 raise RbsOracleCommonError("Multiple database's snapshots found for database name: {}".format(self.database_name))
         if not id:
             self.rubrik.delete_session()
