@@ -204,125 +204,194 @@ class RubrikRbsOracleDatabase:
             Returns:
                 oracle_db_id (str): The Rubrik database object id.
             """
-        # This will use the rubrik_cdm module to get the id. There is a bug that is getting fixed so until
-        # that fix is in place get the id using a basic Get.
-        #     oracle_db_id = self.rubrik.connection.object_id(oracle_db_name, 'oracle_db', hostname=oracle_host_name)
-        #     return oracle_db_id
         if self.is_ip(self.database_host):
             self.rubrik.delete_session()
             raise RbsOracleCommonError("A hostname is required for the Oracle host, do not use an IP address.")
-        query = """query OracleDatabase($name: String, $effectiveSlaDomainId: String, $slaAssignment: String, $primaryClusterId: String, $isRelic: Boolean, $shouldIncludeDataGuardGroups: Boolean, $first: Int, $after: String, $sortBy: String, $sortOrder: String) {
-                      oracleDatabaseConnection(name: $name, effectiveSlaDomainId: $effectiveSlaDomainId, slaAssignment: $slaAssignment, primaryClusterId: $primaryClusterId, isRelic: $isRelic, shouldIncludeDataGuardGroups: $shouldIncludeDataGuardGroups, first: $first, after: $after, sortBy: $sortBy, sortOrder: $sortOrder) {
-                        nodes {
-                          id
-                          name
-                          sid
-                          racId
-                          databaseRole
-                          dbUniqueName
-                          dataGuardGroupId
-                          dataGuardGroupName
-                          standaloneHostId
-                          primaryClusterId
-                          slaAssignment
-                          configuredSlaDomainId
-                          configuredSlaDomainName
-                          effectiveSlaDomain {
-                            id
-                            name
-                            sourceId
-                            sourceName
-                            polarisManagedId
-                            isRetentionLocked
+        if int(self.rubrik.version.split("-")[0].split(".")[0]) >= 8:
+            self.logger.debug("Using graphql queries with CDM version: {}".format(self.rubrik.version))
+            query = """query OracleDatabase($name: String, $effectiveSlaDomainId: String, $slaAssignment: String, $primaryClusterId: String, $isRelic: Boolean, $shouldIncludeDataGuardGroups: Boolean, $first: Int, $after: String, $sortBy: String, $sortOrder: String) {
+                          oracleDatabaseConnection(name: $name, effectiveSlaDomainId: $effectiveSlaDomainId, slaAssignment: $slaAssignment, primaryClusterId: $primaryClusterId, isRelic: $isRelic, shouldIncludeDataGuardGroups: $shouldIncludeDataGuardGroups, first: $first, after: $after, sortBy: $sortBy, sortOrder: $sortOrder) {
+                            nodes {
+                              id
+                              name
+                              sid
+                              racId
+                              databaseRole
+                              dbUniqueName
+                              dataGuardGroupId
+                              dataGuardGroupName
+                              standaloneHostId
+                              primaryClusterId
+                              slaAssignment
+                              configuredSlaDomainId
+                              configuredSlaDomainName
+                              effectiveSlaDomain {
+                                id
+                                name
+                                sourceId
+                                sourceName
+                                polarisManagedId
+                                isRetentionLocked
+                              }
+                              infraPath {
+                                id
+                                name
+                              }
+                              isRelic
+                              numInstances
+                              instances {
+                                hostName
+                                instanceSid
+                              }
+                              isArchiveLogModeEnabled
+                              standaloneHostName
+                              racName
+                              numTablespaces
+                              logBackupFrequencyInMinutes
+                            }
                           }
-                          infraPath {
-                            id
-                            name
-                          }
-                          isRelic
-                          numInstances
-                          instances {
-                            hostName
-                            instanceSid
-                          }
-                          isArchiveLogModeEnabled
-                          standaloneHostName
-                          racName
-                          numTablespaces
-                          logBackupFrequencyInMinutes
-                        }
-                      }
-                    }"""
-        variables = {
-            "name": self.database_name,
-            "sortOrder": "asc",
-            "shouldIncludeDataGuardGroups": True
-        }
-        payload = {"query": query, "variables": variables}
-        databases = self.rubrik.connection.post('internal', '/graphql', payload)['data']['oracleDatabaseConnection']['nodes']
-        self.logger.debug("Returned databases: {}".format(databases))
-        id = None
-        if len(databases) == 0:
-            self.logger.debug("No database found for database name {}, checking for database unique name...".format(
-                self.database_name))
+                        }"""
             variables = {
+                "name": self.database_name,
+                "sortOrder": "asc",
                 "shouldIncludeDataGuardGroups": True
             }
-            all_dbs = self.rubrik.connection.post('internal', '/graphql', payload)['data']['oracleDatabaseConnection'][
-                'nodes']
-            for db in all_dbs:
-                if db['dbUniqueName'].lower() == self.database_name.lower():
-                    self.logger.debug("Found object with dbUniqueName: {}".format(db))
-                    databases.append(db)
-            self.logger.debug("Databases found for database unique name {}: {}".format(self.database_name, oracle_dbs))
-        if len(databases) == 0:
-            self.rubrik.delete_session()
-            raise RbsOracleCommonError("No snapshots found for database: {}".format(self.database_name))
-        elif len(databases) == 1:
-            if databases[0]['dataGuardGroupId']:
-                id = databases[0]['dataGuardGroupId']
-            else:
-                id = databases[0]['id']
-        else:
-            for db in databases:
-                if db['standaloneHostName']:
-                    self.logger.debug("Database hosts to match: {}, {}".format(self.database_host, db['standaloneHostName']))
-                    if self.match_hostname(self.database_host,
-                                                                                db['standaloneHostName']):
-                        if db['dataGuardGroupId']:
-                            id = db['dataGuardGroupId']
-                        else:
-                            id = db['id']
-                elif db['racName']:
-                    self.logger.debug("Database RAC names to match: {}, {}".format(self.database_host, db['racName']))
-                    if self.match_hostname(self.database_host, db['racName']):
-                        if db['dataGuardGroupId']:
-                            id = db['dataGuardGroupId']
-                        else:
-                            id = db['id']
-            if not id:
-                id_list = []
-                for db in databases:
-                    if db['dataGuardGroupId']:
-                        id_list.append(db['dataGuardGroupId'])
-                    else:
-                        id_list.append(db['id'])
-                if not id_list:
-                    self.rubrik.delete_session()
-                    raise RbsOracleCommonError("Unable to extract id from Multiple databases returned for database name: {} with no hostname/rac match".format(self.database_name))
-                if id_list.count(id_list[0]) == len(id_list):
-                    id = id_list[0]
+            payload = {"query": query, "variables": variables}
+            databases = self.rubrik.connection.post('internal', '/graphql', payload)['data']['oracleDatabaseConnection']['nodes']
+            self.logger.debug("Returned databases: {}".format(databases))
+            id = None
+            if len(databases) == 0:
+                self.logger.debug("No database found for database name {}, checking for database unique name...".format(
+                    self.database_name))
+                variables = {
+                    "dbUniqueName": self.database_name,
+                    "shouldIncludeDataGuardGroups": True
+                }
+                payload = {"query": query, "variables": variables}
+                all_dbs = self.rubrik.connection.post('internal', '/graphql', payload)['data']['oracleDatabaseConnection']['nodes']
+                self.logger.debug("all_dbs: {}".format(all_dbs))
+                for db in all_dbs:
+                    if db['dbUniqueName'].lower() == self.database_name.lower():
+                        self.logger.debug("Found object with dbUniqueName: {}".format(db))
+                        databases.append(db)
+                self.logger.debug("Databases found for database unique name {}: {}".format(self.database_name, databases))
+            if len(databases) == 0:
+                self.rubrik.delete_session()
+                raise RbsOracleCommonError("No snapshots found for database: {}".format(self.database_name))
+            elif len(databases) == 1:
+                if databases[0]['dataGuardGroupId']:
+                    id = databases[0]['dataGuardGroupId']
                 else:
+                    id = databases[0]['id']
+            else:
+                for db in databases:
+                    if db['standaloneHostName']:
+                        self.logger.debug("Database hosts to match: {}, {}".format(self.database_host, db['standaloneHostName']))
+                        if self.match_hostname(self.database_host,
+                                                                                    db['standaloneHostName']):
+                            if db['dataGuardGroupId']:
+                                id = db['dataGuardGroupId']
+                            else:
+                                id = db['id']
+                    elif db['racName']:
+                        self.logger.debug("Database RAC names to match: {}, {}".format(self.database_host, db['racName']))
+                        if self.match_hostname(self.database_host, db['racName']):
+                            if db['dataGuardGroupId']:
+                                id = db['dataGuardGroupId']
+                            else:
+                                id = db['id']
+                if not id:
+                    id_list = []
+                    for db in databases:
+                        if db['dataGuardGroupId']:
+                            id_list.append(db['dataGuardGroupId'])
+                        else:
+                            id_list.append(db['id'])
+                    if not id_list:
+                        self.rubrik.delete_session()
+                        raise RbsOracleCommonError("Unable to extract id from Multiple databases returned for database name: {} with no hostname/rac match".format(self.database_name))
+                    if id_list.count(id_list[0]) == len(id_list):
+                        id = id_list[0]
+                    else:
+                        self.rubrik.delete_session()
+                        raise RbsOracleCommonError("Unable to extract id from Multiple databases returned for database name: {} with no hostname/rac match".format(self.database_name))
+                if not id:
                     self.rubrik.delete_session()
-                    raise RbsOracleCommonError("Unable to extract id from Multiple databases returned for database name: {} with no hostname/rac match".format(self.database_name))
+                    raise RbsOracleCommonError("Multiple database's snapshots found for database name: {}".format(self.database_name))
             if not id:
                 self.rubrik.delete_session()
-                raise RbsOracleCommonError("Multiple database's snapshots found for database name: {}".format(self.database_name))
-        if not id:
-            self.rubrik.delete_session()
-            raise RbsOracleCommonError("No ID found for a database with name {} running on host {}.".format(self.database_name,self.database_host))
+                raise RbsOracleCommonError("No ID found for a database with name {} running on host {}.".format(self.database_name,self.database_host))
+            return id
+        else:
+            self.logger.debug("Using REST API GET with CDM version: {}".format(self.rubrik.version))
+            oracle_dbs = self.rubrik.connection.get(self.v6_deprecated, "/oracle/db?name={}".format(self.database_name),
+                                                    timeout=self.cdm_timeout)
+            self.logger.debug("Oracle DBs with name: {} returned: {}".format(self.database_name, oracle_dbs))
+            # Find the oracle_db object with the correct hostName or RAC cluster name.
+            # Instance names can be stored/entered with and without the domain name so
+            # we will compare the hostname without the domain.
+            if self.is_ip(self.database_host):
+                raise RbsOracleCommonError("A hostname is required for the Oracle host, do not use an IP address.")
+            oracle_id = None
+            if oracle_dbs['total'] == 0 and self.v6:
+                self.logger.debug("No database found for database name {}, checking for database unique name...".format(
+                    self.database_name))
+                all_dbs = self.rubrik.connection.get(self.v6_deprecated, "/oracle/db".format(self.database_name),
+                                                     timeout=self.cdm_timeout)
+                for db in all_dbs['data']:
+                    if db['dbUniqueName'].lower() == self.database_name.lower():
+                        self.logger.debug("Found object with dbUniqueName: {}".format(db))
+                        oracle_dbs['data'].append(db)
+                        oracle_dbs['total'] += 1
+                        self.db_unique_name = True
+                self.logger.debug(
+                    "Databases found for database unique name {}: {}".format(self.database_name, oracle_dbs))
+            if oracle_dbs['total'] == 0:
+                raise RbsOracleCommonError(
+                    "The {} object '{}' was not found on the Rubrik cluster.".format(self.database_name,
+                                                                                     self.database_host))
+            elif oracle_dbs['total'] > 0:
+                for db in oracle_dbs['data']:
+                    if (db['name'].lower() == self.database_name.lower() or db[
+                        'dbUniqueName'].lower() == self.database_name.lower()) and db['isRelic'] == False:
+                        if 'standaloneHostName' in db.keys():
+                            if self.match_hostname(self.database_host, db['standaloneHostName']):
+                                oracle_id = db['id']
+                                if self.v6:
+                                    if db['dataGuardType'] == 'DataGuardMember':
+                                        oracle_id = db['dataGuardGroupId']
+                                break
+                        elif 'racName' in db.keys():
+                            if self.database_host == db['racName']:
+                                oracle_id = db['id']
+                                if self.v6:
+                                    if db['dataGuardType'] == 'DataGuardMember':
+                                        oracle_id = db['dataGuardGroupId']
+                                break
+                            for instance in db['instances']:
+                                if self.match_hostname(self.database_host, instance['hostName']):
+                                    oracle_id = db['id']
+                                    if self.v6:
+                                        if db['dataGuardType'] == 'DataGuardMember':
+                                            oracle_id = db['dataGuardGroupId']
+                                    break
+                            if oracle_id:
+                                break
+            if oracle_id:
+                self.logger.debug(
+                    "Found Database id: {} for Database: {} on host or cluster {}".format(oracle_id, self.database_name,
+                                                                                          self.database_host))
+                return oracle_id
+            else:
+                if self.db_unique_name:
+                    raise RbsOracleCommonError(
+                        "No ID found for a database with DB Unique Name {} running on host {}.".format(
+                            self.database_name, self.database_host))
+                else:
+                    raise RbsOracleCommonError(
+                        "No ID found for a database with name {} running on host {}.".format(self.database_name,
+                                                                                             self.database_host))
 
-        return id
 
     def get_oracle_db_info(self):
         """
