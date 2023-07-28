@@ -1,6 +1,6 @@
 {
-  "rubrik_cdm_node_ip": "vault-r-madison.perf.rubrik.com",
-  "rubrik_cdm_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmOWEyZjIzNy1lZTU0LTRlMGQtODdiOS1mODlmMWVhZWZjNGJfYjRlZjM4ZWUtYjcyZC00YWE4LThiYzItZDAwNGY1NTQ3OTU0IiwiaXNNZmFSZW1lbWJlclRva2VuIjpmYWxzZSwiaXNzIjoiZjlhMmYyMzctZWU1NC00ZTBkLTg3YjktZjg5ZjFlYWVmYzRiIiwiaXNSZWR1Y2VkU2NvcGUiOmZhbHNlLCJpYXQiOjE2ODkxOTY5NDcsImp0aSI6ImM0NjZjMDU1LWI2ZDMtNDViYy05ZWE1LTEzNWEwNWYyYWZiZiJ9.TPE8P8i_br31pb87inmQNd97OjL5SiSV6ipetRQo3iM",
+  "rubrik_cdm_node_ip": "",
+  "rubrik_cdm_token": "",
   "rubrik_cdm_username": "",
   "rubrik_cdm_password": ""
 }
