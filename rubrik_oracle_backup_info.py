@@ -7,8 +7,11 @@ import rbs_oracle_common
 
 @click.command()
 @click.option('--source_host_db', '-s', type=str, required=False,  help='The source <host or RAC cluster>:<database>')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
-def cli(source_host_db, debug_level):
+def cli(source_host_db, keyfile, insecure, debug_level):
+
     """
     Displays information about the Oracle database object, the available snapshots, and recovery ranges.
     If no source_host_db is supplied, all non-relic Oracle databases will be listed.
@@ -25,7 +28,7 @@ def cli(source_host_db, debug_level):
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     if source_host_db:
         print("*" * 95)
         print("Connected to cluster: {}, version: {}, Timezone: {}.".format(rubrik.name, rubrik.version, rubrik.timezone))

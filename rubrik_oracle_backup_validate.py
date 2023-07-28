@@ -11,8 +11,10 @@ import pytz
 @click.option('--time_restore', '-t', type=str, help='Point in time to validate the DB, format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
 @click.option('--host_target', '-h', type=str, help='Target Host for DB Validation ')
 @click.option('--wait', is_flag=True, help='Wait for the DB Validate to complete. Will timeout after 2 hours.')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, time_restore, host_target, wait, debug_level):
+def cli(source_host_db, time_restore, host_target, wait, keyfile, insecure, debug_level):
     """
     This will Validate the requested Rubrik Oracle backup set on source or target host or RAC cluster
 
@@ -35,7 +37,7 @@ def cli(source_host_db, time_restore, host_target, wait, debug_level):
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     # The CDM version must be 5.3+ or there is no validate available
     cdm_version = rubrik.version.split("-")[0].split(".")
     if int(cdm_version[0]) < 6 and int(cdm_version[1]) < 3:

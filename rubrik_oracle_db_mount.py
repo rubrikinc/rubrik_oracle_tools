@@ -17,9 +17,12 @@ from configparser import ConfigParser
 @click.option('--pfile', '-p', type=str, help='Custom Pfile path (on target host)')
 @click.option('--aco_file_path', '-a', type=str, help='ACO file path for parameter changes')
 @click.option('--oracle_home', '-o', type=str, help='ORACLE_HOME on destination host. Required as option or in ACO File if source is a Data Guard Group.')
+@click.option('--timeout', type=int, default=20, help='Time to wait for mount operation to complete in minutes before script timeouts. Mount will still continue after timeout.')
 @click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_home, no_wait, debug_level):
+def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_home, timeout, no_wait, keyfile, insecure, debug_level):
     """Live mount a Rubrik Oracle Backup.
 
 \b
@@ -40,9 +43,9 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     source_host_db = source_host_db.split(":")
-    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
+    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0], 180)
     oracle_db_info = database.get_oracle_db_info()
     logger.debug(oracle_db_info)
     # If source DB is RAC then the target for the live mount must be a RAC cluster
@@ -126,7 +129,7 @@ def cli(source_host_db, host_target, time_restore, pfile, aco_file_path, oracle_
         rubrik.delete_session()
         return live_mount_info
     else:
-        live_mount_info = database.async_requests_wait(live_mount_info['id'], 20)
+        live_mount_info = database.async_requests_wait(live_mount_info['id'], timeout)
         logger.warning("Async request completed with status: {}".format(live_mount_info['status']))
         if live_mount_info['status'] != "SUCCEEDED":
             rubrik.delete_session()

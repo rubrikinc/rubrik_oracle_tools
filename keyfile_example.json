@@ -1,0 +1,6 @@
+{
+	"client_id": "",
+	"client_secret": "",
+	"name": "Arbitrary_name-Can_be_anything",
+	"vault_uri": "https://cdm_cluster_address_or_ip"
+}

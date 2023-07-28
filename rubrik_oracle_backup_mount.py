@@ -11,10 +11,12 @@ import pytz
 @click.option('--mount_path', '-m', type=str, required=True, help='The path used to mount the backup files')
 @click.option('--time_restore', '-t', type=str, help='Point in time to mount the DB, format is YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15')
 @click.option('--host_target', '-h', type=str, help='Host or RAC cluster name (RAC target required if source is RAC)  for the Live Mount ')
-@click.option('--timeout', type=int, help='API Timeout value in seconds. Default is 180 seconds')
+@click.option('--timeout', type=int, default=12, help='Time to wait for mount operation to complete in minutes before script timeouts. Mount will still continue after timeout.')
 @click.option('--no_wait', is_flag=True, help='Queue Live Mount and exit.')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait, debug_level):
+def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait,keyfile, insecure, debug_level):
     """
     This will mount the requested Rubrik Oracle backup set on the provided path.
 
@@ -38,9 +40,9 @@ def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait,
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     source_host_db = source_host_db.split(":")
-    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0], timeout)
+    database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0], 180)
     oracle_db_info = database.get_oracle_db_info()
     logger.debug(oracle_db_info)
     if not host_target:
@@ -77,7 +79,7 @@ def cli(source_host_db, mount_path, time_restore, host_target, timeout, no_wait,
         rubrik.delete_session()
         return live_mount_info
     else:
-        live_mount_info = database.async_requests_wait(live_mount_info['id'], 12)
+        live_mount_info = database.async_requests_wait(live_mount_info['id'], timeout)
         logger.warning("Async request completed with status: {}".format(live_mount_info['status']))
         if live_mount_info['status'] != "SUCCEEDED":
             raise RubrikOracleBackupMountError(

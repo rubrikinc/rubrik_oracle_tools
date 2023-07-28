@@ -18,8 +18,10 @@ from configparser import ConfigParser
 @click.option('--oracle_home', '-o', type=str, help='ORACLE_HOME on destination host. Required as option or in ACO File if source is a Data Guard Group.')
 @click.option('--wait', is_flag=True, help='Wait for clone to complete. Times out at wait time.')
 @click.option('--wait_time', type=str, default=1800, help='Time for script to wait for clone to complete. Script exits but clone continues at time out.')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_path, oracle_home, wait, wait_time, debug_level):
+def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_path, oracle_home, wait, wait_time, keyfile, insecure, debug_level):
     """Clones an Oracle Database (alternate host restore or duplicate).
 
      Initiates an Oracle DB clone using the Rubrik RBS automated clone. This can be run on any host since clone will
@@ -50,7 +52,7 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     source_host_db = source_host_db.split(":")
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
     oracle_db_info = database.get_oracle_db_info()

@@ -13,8 +13,10 @@ import operator
 @click.option('--inherit', '-i', is_flag=True, help='Inherit the SLA from the parent object')
 @click.option('--action', '-a', required=True, type=click.Choice(['pause', 'resume'], case_sensitive=False))
 @click.option('--wait', is_flag=True, help='Wait for backup to complete.')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, inherit, action, wait, debug_level):
+def cli(source_host_db, inherit, action, wait, keyfile, insecure, debug_level):
     """    This will pause or resume database backups by managing the protection.
 
 \b
@@ -36,7 +38,7 @@ Resume will restore the last SLA Domain Policy applied (at the last snapshot). I
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     source_host_db = source_host_db.split(":")
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
     oracle_db_info = database.get_oracle_db_info()

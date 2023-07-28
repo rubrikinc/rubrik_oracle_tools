@@ -9,8 +9,10 @@ import pytz
 @click.command()
 @click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
 @click.option('--no_wait', is_flag=True, help='Queue database refresh and exit. This option is always set for now.')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
-def cli(source_host_db, no_wait, debug_level):
+def cli(source_host_db, no_wait, keyfile, insecure, debug_level):
     """
     This will initiate an on demand archive log backup of the database.
 
@@ -31,7 +33,7 @@ def cli(source_host_db, no_wait, debug_level):
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     source_host_db = source_host_db.split(":")
     logger.debug(source_host_db)
     if len(source_host_db) > 1:

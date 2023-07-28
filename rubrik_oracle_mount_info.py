@@ -7,8 +7,10 @@ import sys
 @click.command()
 @click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
 @click.option('--mounted_host', '-m', type=str, required=True,  help='The host with the live mount to remove')
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
-def cli(source_host_db, mounted_host, debug_level):
+def cli(source_host_db, mounted_host, keyfile, insecure, debug_level):
     """
     This will print the information about a Rubrik live mount using the database name and the live mount host.
 
@@ -27,7 +29,7 @@ def cli(source_host_db, mounted_host, debug_level):
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     source_host_db = source_host_db.split(":")
     mount = rbs_oracle_common.RubrikRbsOracleMount(rubrik, source_host_db[1], source_host_db[0], mounted_host)
     live_mount_ids = mount.get_oracle_live_mount_id()

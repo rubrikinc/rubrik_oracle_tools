@@ -7,7 +7,9 @@ import concurrent.futures
 
 @click.command()
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
-def cli(debug_level):
+@click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
+@click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
+def cli(keyfile, insecure, debug_level):
     """
     Displays information about all non-relic Oracle databases.
     Recommended console line size is 180 characters.
@@ -28,7 +30,7 @@ def cli(debug_level):
     t = rbs_oracle_common.Timer(text="RBS Connection took {:0.2f} seconds", logger=logging.debug)
     t.start()
     global rubrik
-    rubrik = rbs_oracle_common.RubrikConnection()
+    rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
     t.stop()
     print("*" * 110)
     print("Connected to cluster: {}, version: {}, Timezone: {}.".format(rubrik.name, rubrik.version, rubrik.timezone))
