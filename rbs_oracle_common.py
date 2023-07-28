@@ -264,7 +264,6 @@ class RubrikRbsOracleDatabase:
                 self.logger.debug("No database found for database name {}, checking for database unique name...".format(
                     self.database_name))
                 variables = {
-                    "dbUniqueName": self.database_name,
                     "shouldIncludeDataGuardGroups": True
                 }
                 payload = {"query": query, "variables": variables}
