@@ -112,6 +112,25 @@ You should probably restrict access to the config.json file
 chmod 600 config.json
 ```
 
+You may also provide a keyfile in most commands using -k full_path_to_keyfile. The keyfile will only work with service
+account created in the CDM cluster you are connecting to. The format for the keyfile is show below.
+```
+{
+	"client_id": "",
+	"client_secret": "",
+	"name": "Arbitrary_name-Can_be_anything",
+	"vault_uri": "https://cdm_cluster_address_or_ip"
+}
+```
+When you create the service account, you will be given a id and a secret. In the keyfile add the ID to the client_id 
+and the Secret to the client_secret. Then add the address or IP for the CDM cluster to the vault_uri. The address or IP
+must have the "https://" prefix in order for the address to work.
+Now the keyfile can be passed to the command and it will contain all information for the service account connection.
+
+Note that you should probably restrict access to the config.json file
+```
+chmod 600 keyfile.json
+```
 ## :mag: Command Summary:
 ----------------------------------------------------
 The following will connect to Rubrik, run using the Rubrik Backup Service and can be run from any host:
@@ -146,13 +165,14 @@ rubrik_oracle_backup_info --help
 Usage: rubrik_oracle_backup_info [OPTIONS]
 
   Displays information about the Oracle database object, the available
-  snapshots, and recovery ranges. If no options are passed all databases 
-  on the CDM will be displayed.
+  snapshots, and recovery ranges. If no source_host_db is supplied, all non-
+  relic Oracle databases will be listed. Recommended console line size is 120
+  characters.
 
 Options:
   -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
-                             [required]
-
+  -k, --keyfile TEXT         The connection keyfile path
+  --insecure                 Flag to use insecure connection
   -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING or CRITICAL.
   --help                     Show this message and exit.
 ```
@@ -162,18 +182,20 @@ Options:
 rubrik_oracle_mount_info --help
 Usage: rubrik_oracle_mount_info [OPTIONS]
 
-      This will print the information about a Rubrik live mount using the database name and the live mount host.
+      This will print the information about a Rubrik live mount using the
+      database name and the live mount host.
 
       Returns:
+
 
 
 Options:
   -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
                              [required]
-
   -m, --mounted_host TEXT    The host with the live mount to remove
                              [required]
-
+  -k, --keyfile TEXT         The connection keyfile path
+  --insecure                 Flag to use insecure connection
   -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING or CRITICAL.
   --help                     Show this message and exit.
 ```
@@ -196,15 +218,14 @@ Usage: rubrik_oracle_snapshot [OPTIONS]
 Options:
   -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
                              [required]
-
   -f, --force                Force a new full database image level 0 backup
   --sla TEXT                 Rubrik SLA Domain to use if different than the
                              assigned SLA
-
   --wait                     Wait for backup to complete.
+  -k, --keyfile TEXT         The connection keyfile path
+  --insecure                 Flag to use insecure connection
   -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
                              CRITICAL.
-
   --help                     Show this message and exit.
 ```
 
@@ -222,11 +243,11 @@ Usage: rubrik_oracle_log_backup [OPTIONS]
 Options:
   -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
                              [required]
-
   --wait                     Wait for backup to complete.
+  -k, --keyfile TEXT         The connection keyfile path
+  --insecure                 Flag to use insecure connection
   -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
                              CRITICAL.
-
   --help                     Show this message and exit.
 ```
 
@@ -238,12 +259,11 @@ Usage: rubrik_oracle_backup_mount [OPTIONS]
       This will mount the requested Rubrik Oracle backup set on the provided
       path.
 
-      The source database is specified in a host:db format. The mount path is required. If the restore time is not 
-      provided the most recent recoverable time will be used. The host for the mount can be specified if it is not it 
-      will be mounted on the source host. On Rubrik CDM versions prior to 5.2.1, the source database is on a RAC cluster 
-      the target must be a RAC cluster. On Rubrik CDM versions 5.2.1 and higher, if the source database is on RAC or 
-      single instance the target can be RAC or a single instance host. 
-
+      The source database is specified in a host:db format. The mount path is required. If the restore time is not
+      provided the most recent recoverable time will be used. The host for the mount can be specified if it is not it
+      will be mounted on the source host. On Rubrik CDM versions prior to 5.2.1, the source database is on a RAC cluster
+      the target must be a RAC cluster. On Rubrik CDM versions 5.2.1 and higher, if the source database is on RAC or
+      single instance the target can be RAC or a single instance host.
       Returns:
           live_mount_info (dict): The information about the requested files only mount returned from the Rubrik CDM.
 
@@ -251,20 +271,20 @@ Usage: rubrik_oracle_backup_mount [OPTIONS]
 Options:
   -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
                              [required]
-
   -m, --mount_path TEXT      The path used to mount the backup files
                              [required]
-
   -t, --time_restore TEXT    Point in time to mount the DB, format is
                              YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
-
   -h, --host_target TEXT     Host or RAC cluster name (RAC target required if
                              source is RAC)  for the Live Mount
-
+  --timeout INTEGER          Time to wait for mount operation to complete in
+                             minutes before script timeouts. Mount will still
+                             continue after timeout.
   --no_wait                  Queue Live Mount and exit.
+  -k, --keyfile TEXT         The connection keyfile path
+  --insecure                 Flag to use insecure connection
   -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
                              CRITICAL.
-
   --help                     Show this message and exit.
 ```
 
@@ -284,17 +304,23 @@ Usage: rubrik_oracle_db_mount [OPTIONS]
 Options:
   -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
                              [required]
-
   -h, --host_target TEXT     Host or RAC cluster name (RAC target required if
                              source is RAC)  for the Live Mount   [required]
-
   -t, --time_restore TEXT    Point in time to mount the DB, iso format is
                              YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
-
-  --no_wait TEXT             Queue Live Mount and exit.
+  -p, --pfile TEXT           Custom Pfile path (on target host)
+  -a, --aco_file_path TEXT   ACO file path for parameter changes
+  -o, --oracle_home TEXT     ORACLE_HOME on destination host. Required as
+                             option or in ACO File if source is a Data Guard
+                             Group.
+  --timeout INTEGER          Time to wait for mount operation to complete in
+                             minutes before script timeouts. Mount will still
+                             continue after timeout.
+  --no_wait                  Queue Live Mount and exit.
+  -k, --keyfile TEXT         The connection keyfile path
+  --insecure                 Flag to use insecure connection
   -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
                              CRITICAL.
-
   --help                     Show this message and exit.
 ```
 
@@ -316,8 +342,8 @@ Usage: rubrik_oracle_db_clone [OPTIONS]
 
    If time restore is not specified, the restore time will be to the latest
    recovery point on Rubrik. The script will  initiate the clone and exit
-   unless --wait is specified. Then the script will monitor the async
-   request for the  wait time (default 30 min.)
+   unless --wait is specified. Then the script will monitor the async request
+   for the  wait time (default 30 min.)
 
     Returns:
       db_clone_info (json); JSON text file with the Rubrik cluster response to the database clone request
@@ -327,25 +353,24 @@ Usage: rubrik_oracle_db_clone [OPTIONS]
 Options:
   -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
                              [required]
-
   -h, --host_target TEXT     Host or RAC cluster name (RAC target required if
                              source is RAC)  for the Live Mount   [required]
-
   -t, --time_restore TEXT    Point in time to mount the DB, iso format is
                              YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
-
   -n, --new_name TEXT        Name for cloned database
   -p, --pfile TEXT           Custom Pfile path (on target host)
   -a, --aco_file_path TEXT   ACO file path for parameter changes
+  -o, --oracle_home TEXT     ORACLE_HOME on destination host. Required as
+                             option or in ACO File if source is a Data Guard
+                             Group.
   --wait                     Wait for clone to complete. Times out at wait
                              time.
-
   --wait_time TEXT           Time for script to wait for clone to complete.
                              Script exits but clone continues at time out.
-
+  -k, --keyfile TEXT         The connection keyfile path
+  --insecure                 Flag to use insecure connection
   -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
                              CRITICAL.
-
   --help                     Show this message and exit.
 ```
 
@@ -357,36 +382,31 @@ Usage: rubrik_oracle_unmount [OPTIONS]
   Unmount a Rubrik database or files live mount using the database name and
   the live mount host.
 
-  This will unmount a live mount of an Oracle database or a mount of the
-  RMAN backup files. The source database is specified in a host:db format.
-  Note that is the original database not the object to be unmounted. The
-  mounted host is the host where the live mounted database or the mounted
-  RMAN backup files will be unmounted. This works if there is only one live
-  mounted database or set of backup files mounted on the host. If there is
-  more than one, you can choose to unmount all the mounts on that host (-a)
-  or specify a specific mount (-i) to unmount. You can list the mounts on a
-  host using rubrik_oracle_mount_info.
+  This will unmount a live mount of an Oracle database or a mount of the RMAN
+  backup files. The source database is specified in a host:db format. Note
+  that is the original database not the object to be unmounted. The mounted
+  host is the host where the live mounted database or the mounted RMAN backup
+  files will be unmounted. This works if there is only one live mounted
+  database or set of backup files mounted on the host. If there is more than
+  one, you can choose to unmount all the mounts on that host (-a) or specify a
+  specific mount (-i) to unmount. You can list the mounts on a host using
+  rubrik_oracle_mount_info.
 
-
-  Returns:
-      unmount_info (dict): Status of the unmount request.
-
+  Returns:     unmount_info (dict): Status of the unmount request.
 
 Options:
   -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
                              [required]
-
   -m, --mounted_host TEXT    The host with the live mount to remove
                              [required]
-
   -f, --force                Force unmount
-  -a, --all_mounts           Unmount all mounts from the source host:db.
-                             Provide all the clone names separated by commas.
-
+  -a, --all_mounts           Unmount all mounts of the database on the target
+                             host.
   -i, --id_unmount TEXT      Unmount a specific mount using the mount id.
                              Multiple ids seperated by commas.
-
   --no_wait                  Queue Live Mount and exit.
+  -k, --keyfile TEXT         The connection keyfile path
+  --insecure                 Flag to use insecure connection
   -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING or CRITICAL.
   --help                     Show this message and exit.
 ```
@@ -394,7 +414,7 @@ Options:
 #### rubrik_oracle_backup_validate
 ```
 rubrik_oracle_backup_validate.py" --help
-Usage: rubrik_oracle_backup_validate.py [OPTIONS]
+Usage: rubrik_oracle_backup_validate [OPTIONS]
 
       This will Validate the requested Rubrik Oracle backup set on source or
       target host or RAC cluster
@@ -410,23 +430,21 @@ Usage: rubrik_oracle_backup_validate.py [OPTIONS]
 Options:
   -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
                              [required]
-
   -t, --time_restore TEXT    Point in time to validate the DB, format is
                              YY:MM:DDTHH:MM:SS example 2019-01-01T20:30:15
-
   -h, --host_target TEXT     Target Host for DB Validation
   --wait                     Wait for the DB Validate to complete. Will
                              timeout after 2 hours.
-
+  -k, --keyfile TEXT         The connection keyfile path
+  --insecure                 Flag to use insecure connection
   -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
                              CRITICAL.
-
-  --help                     Show this message and exit.  
+  --help                     Show this message and exit.
 ```
 
 #### rubrik_oracle_manage_protection --help
 ```
-Usage: rubrik_oracle_manage_protection [OPTIONS]
+Usage: rubrik_oracle_manage_protection.py [OPTIONS]
 
   This will pause or resume database backups by managing the protection.
 
@@ -441,20 +459,20 @@ Usage: rubrik_oracle_manage_protection [OPTIONS]
 Options:
   -s, --source_host_db TEXT    The source <host or RAC cluster>:<database>
                                [required]
-
   -i, --inherit                Inherit the SLA from the parent object
   -a, --action [pause|resume]  [required]
   --wait                       Wait for backup to complete.
+  -k, --keyfile TEXT           The connection keyfile path
+  --insecure                   Flag to use insecure connection
   -d, --debug_level TEXT       Logging level: DEBUG, INFO, WARNING, ERROR or
                                CRITICAL.
-
   --help                       Show this message and exit.
 ```
 
 #### rubrik_oracle_rbs_refresh --help
 ```
 
-Usage: rubrik_oracle_rbs_refresh [OPTIONS]
+Usage: rubrik_oracle_rbs_refresh.py [OPTIONS]
 
       This will initiate an on demand archive log backup of the database.
 
@@ -465,13 +483,12 @@ Usage: rubrik_oracle_rbs_refresh [OPTIONS]
 Options:
   -s, --source_host_db TEXT  The source <host or RAC cluster>:<database>
                              [required]
-
   --no_wait                  Queue database refresh and exit. This option is
                              always set for now.
-
+  -k, --keyfile TEXT         The connection keyfile path
+  --insecure                 Flag to use insecure connection
   -d, --debug_level TEXT     Logging level: DEBUG, INFO, WARNING, ERROR or
                              CRITICAL.
-
   --help                     Show this message and exit.
 ```
 
