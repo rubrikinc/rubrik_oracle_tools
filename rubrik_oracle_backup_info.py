@@ -50,7 +50,13 @@ def cli(source_host_db, keyfile, insecure, debug_level):
         if 'dataGuardType' in oracle_db_info.keys():
             if oracle_db_info['dataGuardType'] == 'DataGuardGroup':
                 for member in oracle_db_info['dataGuardGroupMembers']:
-                    print("DB Unique Name: {0}    Host: {1}    Role: {2}".format(member['dbUniqueName'], member['standaloneHostName'], member['role']))
+                    logger.debug("DG Member: {}".format(member))
+                    if member.get('standaloneHostName'):
+                        logger.debug("StandalonehostName exits... ")
+                        print("DB Unique Name: {0}    Host: {1}    Role: {2}".format(member['dbUniqueName'], member['standaloneHostName'], member['role']))
+                    elif member.get('racName'):
+                        logger.debug("racName exits... ")
+                        print("DB Unique Name: {0}    RAC: {1}    Role: {2}".format(member['dbUniqueName'], member['racName'], member['role']))
         print("SLA: {}    Log Backup Frequency: {} min.    Log Retention: {} hrs.".format(oracle_db_info['effectiveSlaDomainName'], oracle_db_info['logBackupFrequencyInMinutes'], oracle_db_info['logRetentionHours']))
         oracle_snapshot_info = database.get_oracle_db_snapshots()
         logger.debug(oracle_snapshot_info)
