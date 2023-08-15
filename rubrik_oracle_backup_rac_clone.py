@@ -232,9 +232,6 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     # Get directories in path to allow us to find the new directory after the mount
     live_mount_directories = os.listdir(mount_path)
     logger.warning("Starting the mount of the requested {} backup pieces on {}.".format(source_host_db[1], host_target))
-
-    exit(20)
-
     live_mount_info = database.live_mount(host_id, time_ms, files_only=True, mount_path=mount_path)
     live_mount_info = database.async_requests_wait(live_mount_info['id'], 20)
     logger.debug("Backup Live Mount Asyc Request: {}".format(live_mount_info))
