@@ -331,7 +331,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
 
     ####Create temp init file and append RAC settings####
 
-    sql_return = database.sqlplus_sysdba(oracle_home, f"'create pfile={oracle_home}/dbs/rbktemp{} from spfile;'".format(init_file))
+    sql_return = database.sqlplus_sysdba(oracle_home, "'create pfile={}/dbs/rbktemp{} from spfile;'".format(oracle_home,init_file))
     logger.info(sql_return)
     temp_init_file = os.path.join(oracle_home, 'dbs', 'rbktempinit{}.ora'.format(new_oracle_name))
     logger.debug("Creating new temporary init file with RAC Settings{}".format(temp_init_file))
