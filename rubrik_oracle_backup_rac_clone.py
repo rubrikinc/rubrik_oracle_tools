@@ -157,7 +157,6 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     rac_node_count = len(rac_node_names)
 
     racinst_dict = {}  # Initialize an empty dictionary
-
     for i, node_name in enumerate(rac_node_names, start=1):
         variable_name = f"{new_oracle_name}{i}"
         instance_number = i
@@ -171,21 +170,8 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
         }
         racinst_dict[variable_name] = variable_value
 
-    # Printing the dynamically generated variables using the dictionary
-    # for variable_name, variable_value in racinst_dict.items():
-    #     print(f"{variable_name}.instance_number = {variable_value['instance_number']}")
-    #     print(f"{variable_name}.thread = {variable_value['thread']}")
-    #     print(f"{variable_name}.undo_tablespace = '{variable_value['undo_tablespace']}'")
-
-    for instance in racinst_dict:
-        logger.debug(f"Adding parameters: {instance}.instance_name={racinst_dict[instance]['instance_number']}, "
-                     f"{instance}.thread={racinst_dict[instance]['thread']}, "
-                     f"{instance}.undo_tablespace={racinst_dict[instance]['undo_tablespace']} ")
-
-
     # Get the target host name which is the host running the command
     host_target = platform.uname()[1].split('.')[0]
-    ###host_target = 'orcl-tgt-1.rubrik.lab'
     logger.debug("The hostname used for the target host is {}".format(host_target))
     if len(new_oracle_name) > 8:
         logger.debug(
@@ -203,13 +189,6 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     rubrik = rbs_oracle_common.RubrikConnection()
     database = rbs_oracle_common.RubrikRbsOracleDatabase(rubrik, source_host_db[1], source_host_db[0])
     oracle_db_info = database.get_oracle_db_info()
-    # If the source database is on a RAC cluster the target must be a RAC cluster otherwise it will be an Oracle Host
-    # if 'racName' in oracle_db_info.keys():
-    #     if oracle_db_info['racName']:
-    #         host_id = database.get_rac_id(rubrik.cluster_id, host_target)
-    # else:
-    #     host_id = database.get_host_id(rubrik.cluster_id, host_target)
-
     host_id = database.get_any_rac_target_id(rubrik.cluster_id, host_target)
     # Use the provided time or if no time has been provided use the the most recent recovery point
     if time_restore:
@@ -330,11 +309,14 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     logger.warning("Duplicate of non-RAC {} database complete.".format(new_oracle_name))
 
     ####Create temp init file and append RAC settings####
-
-    sql_return = database.sqlplus_sysdba(oracle_home, "'create pfile={}/dbs/rbktemp{} from spfile;'".format(oracle_home,init_file))
+    logger.debug("Creating temporary init file")
+    sql_return = database.sqlplus_sysdba(oracle_home, "create pfile='{}/dbs/rbktempinit{}.ora' from spfile;".format(oracle_home, new_oracle_name))
     logger.info(sql_return)
     temp_init_file = os.path.join(oracle_home, 'dbs', 'rbktempinit{}.ora'.format(new_oracle_name))
-    logger.debug("Creating new temporary init file with RAC Settings{}".format(temp_init_file))
+    for instance in racinst_dict:
+        logger.debug(f"Adding RAC instance parameters: {instance}.instance_name={racinst_dict[instance]['instance_number']}, "
+                     f"{instance}.thread={racinst_dict[instance]['thread']}, "
+                     f"{instance}.undo_tablespace={racinst_dict[instance]['undo_tablespace']} ")
     # Writing the dynamically generated RAC variables and *.cluster_database=TRUE to the temp_init_file in append mode
     with open(temp_init_file, 'a') as file:
         file.write("*.cluster_database=TRUE\n")  # Writing the additional line
@@ -343,46 +325,41 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
             file.write(f"{variable_name}.thread = {variable_value['thread']}\n")
             file.write(f"{variable_name}.undo_tablespace = '{variable_value['undo_tablespace']}'\n")
     ### Create spfile from temp_init_file with RAC settings in shared area
-    ###sql_return = database.sqlplus_sysdba(oracle_home, "create spfile='+DATA/srclone/PARAMETERFILE/rbkspfilesrclone.ora' from pfile='?/dbs/rbkinitsrclone.ora'")
-    ###logger.info(sql_return)
-    ### Shutdown non-cluster database
-    ### sql_return = database.sqlplus_sysdba(oracle_home, "shutdown immediate;")
-    ###logger.info(sql_return)
+    sql_return = database.sqlplus_sysdba(oracle_home, f"create spfile='+DATA/{new_oracle_name}/PARAMETERFILE/spfile{new_oracle_name}.ora' from pfile='{temp_init_file}'")
+    logger.info(sql_return)
+    ## Shutdown non-cluster database
+    sql_return = database.sqlplus_sysdba(oracle_home, "shutdown immediate;")
+    logger.info(sql_return)
     ###On Node1 , set Oracle_SID=new_oracle_name<1>
     ### Set ORACLE_SID to new_oracle_name1
-    ### os.environ["ORACLE_SID"] = f"{new_oracle_name}1"
-    ### logger.debug("Setting env variable ORACLE_HOME=f"{oracle_home}", ORACLE_SID=f{new_oracle_name}1")
+    os.environ["ORACLE_SID"] = f"{new_oracle_name}1"
+    logger.debug("Setting env variable ORACLE_SID=f{new_oracle_name}1")
     ### Construct the path to the init file with the "1" suffix on node1
-    ###  init_file_path = os.path.join(oracle_home, "dbs", f"init{new_oracle_name}1.ora")
+    init_file_path = os.path.join(oracle_home, "dbs", f"init{new_oracle_name}1.ora")
     ### Check if the init file exists
-    ### if os.path.exists(init_file_path):
-    ### Create a backup filename by adding '.bak' extension
-    ### backup_file_path = os.path.join(oracle_home, "dbs", f"init{new_oracle_name}1.ora.bak")
-    ### Make a backup by copying the init file
-    ###  shutil.copy(init_file_path, backup_file_path)
-    ###  print(f"Backup of {init_file_path} created at {backup_file_path}")
+    if os.path.exists(init_file_path):
+        ### Create a backup filename by adding '.bak' extension
+        backup_file_path = os.path.join(oracle_home, "dbs", f"init{new_oracle_name}1.ora.bak")
+        ### Make a backup by copying the init file
+        shutil.copy(init_file_path, backup_file_path)
+        logger.debug(f"Backup of {init_file_path} created at {backup_file_path}")
+    # Open the init file in write mode and write the line with variable
+    sp_file_path = f"+DATA/{new_oracle_name}/PARAMETERFILE/spfile{new_oracle_name}.ora"  # Specify the sp_file_path
+    with open(init_file_path, 'w') as file:
+        file.write(f"SPFILE='{sp_file_path}'\n")  # Writing the SPFILE line
 
-
-##else:
-##print(f"{init_file_path} does not exist")
-### Open the init file in write mode and write the line with variable
-### sp_file_path = "/+DATA/parameter/spfile<new_oracle_name>.ora"  # Specify the sp_file_path
-###with open(init_file_path, 'w') as file:
-###file.write(f"SPFILE='{sp_file_path}'\n")  # Writing the SPFILE line
-###else:
-###print(f"{init_file_path} does not exist")
-###sql_return = database.sqlplus_sysdba(oracle_home, "startup;")
-###sql_return = database.sqlplus_sysdba(oracle_home, "f"{oracle_home}"/rdbms/admin/catclust.sql;")
-###sql_return = database.sqlplus_sysdba(oracle_home, "shutdown immediate;")
-###logger.info(sql_return)
+    sql_return = database.sqlplus_sysdba(oracle_home, "startup;")
+    logger.info(sql_return)
+    sql_return = database.sqlplus_sysdba(oracle_home, f"{oracle_home}/rdbms/admin/catclust.sql;")
+    logger.info(sql_return)
+    sql_return = database.sqlplus_sysdba(oracle_home, "shutdown immediate;")
+    logger.info(sql_return)
 
 ###### Add RAC Database to CRS Registry#####
-spfile_path = "+DATA/srclone/PARAMETERFILE/rbrkspfilesrclone.ora"
-
 
 ###command = (
 ###f"{oracle_home}/bin/srvctl"
-###f" add database -d {new_oracle_name} -o {oracle_home} -p {spfile_path}"
+###f" add database -d {new_oracle_name} -o {oracle_home} -p {sp_file_path}"
 ###)
 
 ###try:
@@ -394,10 +371,9 @@ spfile_path = "+DATA/srclone/PARAMETERFILE/rbrkspfilesrclone.ora"
 ###except Exception as e:
 ###print("Error:", e)
 
-###node_names = rac_node_list.split(':')
 
 ####Add RAC Instances to CRS registry in a loop based on node list#####
-###for i, node_name in enumerate(node_names, start=1):
+###for i, node_name in enumerate(rac_node_names, start=1):
 ###command = (
 ###f"{oracle_home}/bin/srvctl"
 ###f" add instance -d {oracle_new_name}"
@@ -416,21 +392,21 @@ spfile_path = "+DATA/srclone/PARAMETERFILE/rbrkspfilesrclone.ora"
 ####start_command = f"srvctl start database -d {new_oracle_name}"
 ###  os.system(start_command)
 
-# mount = rbs_oracle_common.RubrikRbsOracleMount(rubrik, source_host_db[1], source_host_db[0], host_target)
-# logger.warning("Unmounting backups.")
-# delete_request = mount.live_mount_delete(live_mount_id)
-# delete_request = mount.async_requests_wait(delete_request['id'], 12)
-# logger.info("Async request completed with status: {}".format(delete_request['status']))
-# logger.debug(delete_request)
-# if delete_request['status'] != "SUCCEEDED":
-# logger.warning("Unmount of backup files failed with status: {}".format(delete_request['status']))
-# else:
-# logger.info("Live mount of backup data files with id: {} has been unmounted.".format(live_mount_id))
-# logger.warning("Backups unmounted")
-#
-# logger.warning("Database clone complete")
-# rubrik.delete_session()
-# return
+    mount = rbs_oracle_common.RubrikRbsOracleMount(rubrik, source_host_db[1], source_host_db[0], host_target)
+    logger.warning("Unmounting backups.")
+    delete_request = mount.live_mount_delete(live_mount_id)
+    delete_request = mount.async_requests_wait(delete_request['id'], 12)
+    logger.info("Async request completed with status: {}".format(delete_request['status']))
+    logger.debug(delete_request)
+    if delete_request['status'] != "SUCCEEDED":
+        logger.warning("Unmount of backup files failed with status: {}".format(delete_request['status']))
+    else:
+        logger.info("Live mount of backup data files with id: {} has been unmounted.".format(live_mount_id))
+        logger.warning("Backups unmounted")
+
+    logger.warning("Database clone complete")
+    rubrik.delete_session()
+    return
 
 
 class RubrikOracleBackupMountCloneError(rbs_oracle_common.NoTraceBackWithLineNumber):
