@@ -313,6 +313,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     sql_return = database.sqlplus_sysdba(oracle_home, "create pfile='{}/dbs/rbktempinit{}.ora' from spfile;".format(oracle_home, new_oracle_name))
     logger.info(sql_return)
     temp_init_file = os.path.join(oracle_home, 'dbs', 'rbktempinit{}.ora'.format(new_oracle_name))
+    logger.debug(f"Temp init file: {temp_init_file}")
     for instance in racinst_dict:
         logger.debug(f"Adding RAC instance parameters: {instance}.instance_name={racinst_dict[instance]['instance_number']}, "
                      f"{instance}.thread={racinst_dict[instance]['thread']}, "
@@ -325,7 +326,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
             file.write(f"{variable_name}.thread = {variable_value['thread']}\n")
             file.write(f"{variable_name}.undo_tablespace = '{variable_value['undo_tablespace']}'\n")
     ### Create spfile from temp_init_file with RAC settings in shared area
-    sql_return = database.sqlplus_sysdba(oracle_home, f"create spfile='+DATA/{new_oracle_name}/PARAMETERFILE/spfile{new_oracle_name}.ora' from pfile='{temp_init_file}'")
+    sql_return = database.sqlplus_sysdba(oracle_home, f"create spfile='+DATA/{new_oracle_name}/PARAMETERFILE/spfile{new_oracle_name}.ora;' from pfile='{temp_init_file}'")
     logger.info(sql_return)
     ## Shutdown non-cluster database
     sql_return = database.sqlplus_sysdba(oracle_home, "shutdown immediate;")
@@ -333,7 +334,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     ###On Node1 , set Oracle_SID=new_oracle_name<1>
     ### Set ORACLE_SID to new_oracle_name1
     os.environ["ORACLE_SID"] = f"{new_oracle_name}1"
-    logger.debug("Setting env variable ORACLE_SID=f{new_oracle_name}1")
+    logger.debug(f"Setting env variable ORACLE_SID={new_oracle_name}1")
     ### Construct the path to the init file with the "1" suffix on node1
     init_file_path = os.path.join(oracle_home, "dbs", f"init{new_oracle_name}1.ora")
     ### Check if the init file exists
@@ -344,7 +345,8 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
         shutil.copy(init_file_path, backup_file_path)
         logger.debug(f"Backup of {init_file_path} created at {backup_file_path}")
     # Open the init file in write mode and write the line with variable
-    sp_file_path = f"+DATA/{new_oracle_name}/PARAMETERFILE/spfile{new_oracle_name}.ora"  # Specify the sp_file_path
+    sp_file_path = f"+DATA/{new_oracle_name}/PARAMETERFILE/spfile{new_oracle_name}.ora"  # Specify the sp_file_path\
+    logger.debug(f"Creating init file: {init_file_path} with sp file path: {sp_file_path}")
     with open(init_file_path, 'w') as file:
         file.write(f"SPFILE='{sp_file_path}'\n")  # Writing the SPFILE line
 
