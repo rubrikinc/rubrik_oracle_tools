@@ -375,9 +375,9 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     try:
         exit_code = os.system(command)
         if exit_code == 0:
-            logger.debug(f"srvctl add database {new_oracle_name} Command executed successfully")
+            logger.warning(f"srvctl add database {new_oracle_name} Command executed successfully")
         else:
-            logger.debug("srvctl add database Command execution failed")
+            logger.warning("srvctl add database Command execution failed")
     except Exception as e:
         logger.debug("Error:", e)
 
@@ -392,9 +392,9 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
 
         try:
             os.system(command)
-            logger.debug(f"srvctl add instance for node {node_name} executed successfully")
+            logger.warning(f"srvctl add instance for node {node_name} executed successfully")
         except Exception as e:
-            print(f"Error for node {node_name}: {e}")
+            logger.debug(f"Error for node {node_name}: {e}")
 
     # Restart database using srvctl
     shut_command = f"srvctl stop database -d {new_oracle_name}"
