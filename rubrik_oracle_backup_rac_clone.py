@@ -169,7 +169,6 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
         logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
 
     if not (db_file_name_convert and log_file_name_convert and parameter_value_convert):
-        rubrik.delete_session()
         raise RubrikOracleBackupMountCloneError(
             "All of the convert parameters: db_file_name_convert, log_file_name_convert, parameter_value_convert must be supplied")
 
@@ -194,13 +193,11 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
         logger.debug(
             "The new oracle name: {} is too long. Oracle names must be 8 characters or less. Aborting clone".format(
                 new_oracle_name))
-        rubrik.delete_session()
         raise RubrikOracleBackupMountCloneError(
             "The new oracle name: {} is too long. Oracle names must be 8 characters or less.".format(new_oracle_name))
     if new_oracle_name == source_host_db[1]:
         logger.debug("The new oracle db name {} cannot be the same as the source db name {} ".format(new_oracle_name,
                                                                                                      source_host_db[1]))
-        rubrik.delete_session()
         raise RubrikOracleBackupMountCloneError(
             "The new oracle db name {} cannot be the same as the source db name {} ".format(new_oracle_name,
                                                                                             source_host_db[1]))
