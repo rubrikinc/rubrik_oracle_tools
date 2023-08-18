@@ -415,8 +415,11 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     # Restart database using srvctl
     shut_command = f"srvctl stop database -d {new_oracle_name}"
     os.system(shut_command)
+    logger.warning(f"Starting RAC database {new_oracle_name} on RAC nodes {rac_node_list}")
     start_command = f"srvctl start database -d {new_oracle_name}"
     os.system(start_command)
+    status_command = f"srvctl status database -d {new_oracle_name}"
+    os.system(status_command)
     mount = rbs_oracle_common.RubrikRbsOracleMount(rubrik, source_host_db[1], source_host_db[0], host_target)
     logger.warning("Unmounting backups.")
     delete_request = mount.live_mount_delete(live_mount_id)
