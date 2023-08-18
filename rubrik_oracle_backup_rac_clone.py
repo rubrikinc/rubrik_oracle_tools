@@ -38,6 +38,8 @@ import configparser
               help='Remap the datafile locations. Using full paths in single quotes separated by commas in pairs of \'from location\',\'to location\'')
 @click.option('--log_file_name_convert', type=str,
               help='Remap the redo log locations. Using full paths in single quotes separated by commas in pairs of \'from location\',\'to location\'')
+@click.option('--parameter_value_convert', type=str,
+              help='Converts parameter names that contain the names \'from name\',\'to name\'')
 @click.option('--audit_file_dest', type=str,
               help='Set the path for the audit files. This path must exist on the target host')
 @click.option('--core_dump_dest', type=str,
@@ -47,7 +49,7 @@ import configparser
               help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
 def cli(source_host_db, rac_node_list, mount_path, new_oracle_name, configuration_file, time_restore, oracle_home,
         undo_tbsp, spfile_loc, parallelism,
-        no_spfile, no_file_name_check, refresh_db, control_files, db_file_name_convert, log_file_name_convert,
+        no_spfile, no_file_name_check, refresh_db, control_files, db_file_name_convert, log_file_name_convert, parameter_value_convert,
         audit_file_dest, core_dump_dest, log_path, debug_level):
     """
     This will use the Rubrik RMAN backups to do a duplicate (or refresh) of an Oracle Database.
@@ -116,6 +118,24 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
+    # Set up the file logging
+    if log_path:
+        os.makedirs(log_path, exist_ok=True)
+        logfile = os.path.join(log_path,
+                               "{}_Clone_{}.log".format(new_oracle_name, datetime.now().strftime("%Y%m%d-%H%M%S")))
+        fh = logging.FileHandler(logfile, mode='w')
+        if debug_level.upper() == 'DEBUG':
+            fh.setLevel(logging.DEBUG)
+        else:
+            fh.setLevel(logging.INFO)
+        file_formatter = logging.Formatter('%(asctime)s:%(name)s:%(levelname)s: %(message)s')
+        fh.setFormatter(file_formatter)
+        logger.addHandler(fh)
+
+    source_host_db = source_host_db.split(":")
+    rac_node_names = rac_node_list.split(",")
+    rac_node_count = len(rac_node_names)
+
     # Read in the configuration
     if configuration_file:
         configuration = configparser.ConfigParser()
@@ -136,6 +156,8 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
             db_file_name_convert = configuration['parameters']['db_file_name_convert']
         if 'log_file_name_convert' in configuration['parameters'].keys():
             log_file_name_convert = configuration['parameters']['log_file_name_convert']
+        if 'parameter_value_convert' in configuration['parameters'].keys():
+            parameter_value_convert = configuration['parameters']['parameter_value_convert']
         if 'log_path' in configuration['parameters'].keys():
             log_path = configuration['parameters']['log_path']
         if 'time_restore' in configuration['parameters'].keys():
@@ -146,20 +168,10 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
             core_dump_dest = configuration['parameters']['core_dump_dest']
         logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
 
-    # Set up the file logging
-    if log_path:
-        os.makedirs(log_path, exist_ok=True)
-        logfile = os.path.join(log_path,
-                               "{}_Clone_{}.log".format(new_oracle_name, datetime.now().strftime("%Y%m%d-%H%M%S")))
-        fh = logging.FileHandler(logfile, mode='w')
-        fh.setLevel(logging.DEBUG)
-        file_formatter = logging.Formatter('%(asctime)s:%(name)s:%(levelname)s: %(message)s')
-        fh.setFormatter(file_formatter)
-        logger.addHandler(fh)
-
-    source_host_db = source_host_db.split(":")
-    rac_node_names = rac_node_list.split(",")
-    rac_node_count = len(rac_node_names)
+    if not (db_file_name_convert and log_file_name_convert and parameter_value_convert):
+        rubrik.delete_session()
+        raise RubrikOracleBackupMountCloneError(
+            "All of the convert parameters: db_file_name_convert, log_file_name_convert, parameter_value_convert must be supplied")
 
     racinst_dict = {}  # Initialize an empty dictionary
     for i, node_name in enumerate(rac_node_names, start=1):
@@ -182,11 +194,13 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
         logger.debug(
             "The new oracle name: {} is too long. Oracle names must be 8 characters or less. Aborting clone".format(
                 new_oracle_name))
+        rubrik.delete_session()
         raise RubrikOracleBackupMountCloneError(
             "The new oracle name: {} is too long. Oracle names must be 8 characters or less.".format(new_oracle_name))
     if new_oracle_name == source_host_db[1]:
         logger.debug("The new oracle db name {} cannot be the same as the source db name {} ".format(new_oracle_name,
                                                                                                      source_host_db[1]))
+        rubrik.delete_session()
         raise RubrikOracleBackupMountCloneError(
             "The new oracle db name {} cannot be the same as the source db name {} ".format(new_oracle_name,
                                                                                             source_host_db[1]))
@@ -211,6 +225,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
                 "No oracle_home was provided and Rubrik does not know the oracle_home, most likely because the source is a Data Guard Group ")
     if not os.path.exists(oracle_home):
         logger.debug("The ORACLE_HOME: {} does not exist on the target host: {}".format(oracle_home, host_target))
+        rubrik.delete_session()
         raise RubrikOracleBackupMountCloneError(
             "The ORACLE_HOME: {} does not exist on the target host: {}".format(oracle_home, host_target))
     # Get directories in path to allow us to find the new directory after the mount
@@ -223,6 +238,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     if live_mount_info['status'] != "SUCCEEDED":
         logger.debug("Mount of backup files did not complete successfully. Mount ended with status {}".format(
             live_mount_info['status']))
+        rubrik.delete_session()
         raise RubrikOracleBackupMountCloneError(
             "Mount of backup files did not complete successfully. Mount ended with status {}".format(
                 live_mount_info['status']))
@@ -236,6 +252,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
         logger.debug(
             "Multiple directories were created in {} during this operation. Live mount directory cannot be determined".format(
                 mount_path))
+        rubrik.delete_session()
         raise RubrikOracleBackupMountCloneError(
             "Multiple directories were created in {} during this operation. Live mount directory cannot be determined".format(
                 mount_path))
@@ -267,6 +284,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     if "ORA-01081: cannot start already-running ORACLE" in sql_return:
         logger.debug(
             "There is an instance of {} all ready running on this host. Aborting clone".format(new_oracle_name))
+        rubrik.delete_session()
         raise RubrikOracleBackupMountCloneError(
             "There is an instance of {} all ready running on this host or refreshed DB did not start cleanly. Aborting clone".format(
                 new_oracle_name))
@@ -274,6 +292,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     logger.info(sql_return)
     if new_oracle_name not in sql_return:
         logger.debug("DB Instance check failed. Instance name is not {}. Aborting clone".format(new_oracle_name))
+        rubrik.delete_session()
         raise RubrikOracleBackupMountCloneError(
             "DB Instance check failed. Instance name is not {}. Aborting clone".format(new_oracle_name))
 
