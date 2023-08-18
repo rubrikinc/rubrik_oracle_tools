@@ -28,9 +28,9 @@ import configparser
               help='The degree of parallelism to use for the RMAN duplicate')
 @click.option('--no_spfile', is_flag=True,
               help='Restore SPFILE and replace instance specific parameters with new DB name')
-@click.option('--no_file_name_check', is_flag=True,
+@click.option('--no_file_name_check', is_flag=False,
               help='Do not check for existing files and overwrite existing files. Potentially destructive use with caution')
-@click.option('--refresh_db', is_flag=True,
+@click.option('--refresh_db', is_flag=False,
               help='Refresh and existing database. Overwriting exiting database. Requires no_file_name_check.')
 @click.option('--control_files', type=str,
               help='Locations for control files. Using full paths in single quotes separated by commas')
@@ -263,7 +263,8 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
 
     if refresh_db:
         logger.warning("Shutting down {} database for refresh".format(new_oracle_name))
-        logger.info(database.sqlplus_sysdba(oracle_home, "shutdown immediate;"))
+        shut_command = f"srvctl stop database -d {new_oracle_name}"
+        os.system(shut_command)
     if no_spfile:
         logger.warning("Starting auxiliary instance")
         sql_return = database.sqlplus_sysdba(oracle_home, "startup nomount")
@@ -383,6 +384,9 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     logger.info(sql_return)
 
     ###### Add RAC Database to CRS Registry#####
+    logger.warning("Clearing any existing database settings with srvctl.")
+    delete_command = f"srvctl remove database -d {new_oracle_name} -y"
+    os.system(delete_command)
     command = (
         f"{oracle_home}/bin/srvctl"
         f" add database -d {new_oracle_name} -o {oracle_home} -p {sp_file_path}"
