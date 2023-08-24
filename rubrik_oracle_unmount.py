@@ -30,6 +30,7 @@ def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait, ke
     """
     numeric_level = getattr(logging, debug_level.upper(), None)
     if not isinstance(numeric_level, int):
+        rubrik.delete_session()
         raise ValueError('Invalid log level: {}'.format(debug_level))
     logger = logging.getLogger()
     logger.setLevel(logging.NOTSET)
@@ -101,6 +102,7 @@ def cli(source_host_db, mounted_host, force, all_mounts, id_unmount, no_wait, ke
                     logger.debug(delete_request)
                 unmount_info.append(delete_request)
     else:
+        rubrik.delete_session()
         raise RubrikOracleUnmountError( "Multiple live mounts found for {} live mounted on {}. "
                                             "Use --all_mounts or --id_mounts to unmount all or some of the mounts "
                                             .format(source_host_db[1], mounted_host))

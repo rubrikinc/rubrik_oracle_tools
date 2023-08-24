@@ -678,6 +678,65 @@ class RubrikRbsOracleDatabase:
             raise RbsOracleCommonError("The host or RAC cluster: {} was not found on the Rubrik CDM.".format(target_name))
         return target_id
 
+    def get_any_rac_target_id(self, primary_cluster_id, target_name):
+        """
+        Gets the RAC Cluster ID or the Host ID using the target name.
+
+        Args:
+            self (object): Database Object
+            target_name (str): The target name.
+            primary_cluster_id (str): The rubrik cluster id
+
+        Returns:
+            target_id (str): The RAC or Host ID  if found otherwise will exit with error condition.
+        """
+        target_name = target_name.split('.')[0]
+        host_info = self.rubrik.connection.get('internal', '/oracle/host?name={}'.format(target_name),
+                                               timeout=self.cdm_timeout)
+        target_id = ''
+        if host_info['total'] > 0:
+            self.logger.debug("Hostnames were matched.")
+            for hosts in host_info['data']:
+                if hosts['primaryClusterId'] == primary_cluster_id and hosts['status'] == 'Connected' and \
+                        hosts['name'].split('.')[0] == target_name:
+                    target_id = hosts['id']
+                    self.logger.debug(f"Target id: {target_id} found from hostname match.")
+                    break
+        else:
+            self.logger.debug("Checking for RAC name.")
+            rac_info = self.rubrik.connection.get('internal', '/oracle/rac?name={}'.format(target_name),
+                                                  timeout=self.cdm_timeout)
+
+            if rac_info['total'] == 1 and rac_info['data'][0]['name'] == target_name:
+                target_id = rac_info['data'][0]['id']
+                self.logger.debug(f"Target id: {target_id} found from rac name match.")
+            elif rac_info['total'] > 1:
+                for rac in rac_info['data']:
+                    if rac['primaryClusterId'] == primary_cluster_id and rac['status'] == 'Connected' and rac[
+                        'name'] == target_name:
+                        target_id = rac['id']
+                        self.logger.debug(f"Target id: {target_id} found from rac name match.")
+                        break
+            else:
+                self.logger.debug("Checking for RAC name using the target hostname.")
+                rac_info = self.rubrik.connection.get('internal', '/oracle/rac', timeout=self.cdm_timeout)
+                self.logger.debug(f"All RACs returned: {rac_info}")
+                if rac_info['total'] > 0:
+                    for rac in rac_info['data']:
+                        if rac['primaryClusterId'] == primary_cluster_id and rac['status'] == 'Connected' and \
+                                rac['name'].split('.')[0] == target_name:
+                            target_id = rac['id']
+                            break
+                        elif rac['primaryClusterId'] == primary_cluster_id and rac['status'] == 'Connected':
+                            for node in rac['nodes']:
+                                if node['nodeName'].split('.')[0] == target_name:
+                                    target_id = rac['id']
+                                    break
+
+        if not target_id:
+            raise RbsOracleCommonError("The host: {} was not found on the Rubrik CDM.".format(target_name))
+        return target_id
+
     def async_requests_wait(self, requests_id, timeout):
         timeout_start = time.time()
         terminal_states = ['FAILED', 'CANCELED', 'SUCCEEDED']

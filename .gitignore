@@ -3,4 +3,4 @@ venv_clone
 .idea
 __pycache__
 *.egg-info
-config.json
+config.json.DS_Store

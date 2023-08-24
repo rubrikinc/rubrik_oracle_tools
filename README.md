@@ -151,6 +151,7 @@ rubrik_oracle_rbs_refresh - Refresh the database or the host in the Rubrik CDM.
 The follow will connect to Rubrik but must also connect to the local Oracle instance. They must be run on the target host:
 ```
 rubrik_oracle_backup_clone - Duplicates/clones an Oracle databae using RMAN and the RMAN backups from Rubrik. Allow database refresh.
+rubrik_oracle_backup_rac_clone - Duplicates/clones an Oracle RAC databae using RMAN on given RAC nodes using the RMAN backups LM from Rubrik. Allow database refresh.
 rubrik_oracle_backup_mount_clone - This will do a live mount from the RMAN backups and allow you to change the name prior to the clone.
 rubrik_oracle_db_mount_clone - This will do a Rubrik live mount and then change the name after the mount completes.
 rubrik_oracle_clone_unmount - Removes a live mount when the name has been changed.
@@ -650,6 +651,157 @@ Options:
 
 ```
 
+#### rubrik_oracle_backup_rac_clone
+```
+  rubrik_oracle_backup_rac_clone --help
+Usage: rubrik_oracle_backup_rac_clone [OPTIONS]
+
+      This will use the Rubrik RMAN backups to do a duplicate (or refresh)
+      of a source Oracle RAC Database to target RAC database with new name on
+      mentioned RAC nodes of a RAC cluster.       The source database is
+      specified in format <RAC cluster>:<database>. The RAC target nodes,
+      backup mount path,new Oracle DB name,  db_file_name_convert,
+      log_file_name_convert, parameter_value_convert, audit_file_dest are
+      required. If the restore time is not provided the most recent
+      recoverable time will be used. Command line Oracle path       parameters
+      must be enclosed in both double quotes and each path within enclosed
+      with single quotes. All the optional       parameters can be provided in
+      a configuration file. All the flag options must be entered as true false
+      in the       configuration file. If the Oracle Home is not specified the
+      ORACLE_HOME path from the source database will be used.  If a log
+      directory is not specified, no log will be created.
+
+    Example:
+    rubrik_oracle_backup_rac_clone -s orcl-sr-cluster:ORA19C -r orcl-tgt-1,orcl-tgt-2 -m /home/oracle/restore   -t 2023-08-06T00:06:00
+    -n clonetst -l /home/oracle/clone_logs  -p 8 --audit_file_dest "'/home/oracle/adump'" --db_file_name_convert "'+DATA','+DATA1'"
+    --log_file_name_convert "'+DATA','+DATA1','+RECO','+RECO1'" --parameter_value_convert "'ORA19C','clonetst'" --refresh_db --no_file_name_chec
+      This will use the Rubrik RMAN backups to do a duplicate (or refresh) of an RAC Oracle Database.
+
+  Example Configuration File:
+  ### The following line is required:
+  [parameters]
+  ### All parameters are optional. Command line flags are boolean (true/false)
+  ### The degree of parallelism to use for the RMAN duplicate (default is 4)
+  # parallelism = 4
+  ### Do not restore the spfile renaming the parameters with the new db name.
+  # no_spfile = true
+  ### Pint in time for duplicate
+  # time_restore = 2020-11-08T00:06:00
+  ### ORACLE_HOME if different than source db
+  # oracle_home = /u01/app/oracle/product/12.2.0/dbhome_1
+  ### Do not check for existing files
+  # no_file_name_check = true
+  ### Refresh an existing database. The database will be shutdown and the existing file will be overwritten.
+  ### Requires no_file_name_check = True
+  # refresh_db = True
+  ### Control File locations
+  # control_files = '/u02/oradata/clonedb/control01.ctl','/u02/oradata/clonedb/control02.ctl'
+  ### Remap the database files
+  # db_file_name_convert = '/u02/oradata/ora1db/','/u02/oradata/clonedb/'
+  ### Remap the redo log locations
+  # log_file_name_convert = '/u02/oradata/ora1db/','u02/oradata/clonedb/'
+  ### Set the audit file destination path
+  # audit_file_dest = '/u01/app/oracle/admin/clonedb/adump'
+  ### Set the core dump destination path
+  # core_dump_dest = '/u01/app/oracle/admin/clonedb/cdump'
+  ### Directory where logs will be created. If not provided not logs will be created
+  # log_path = /home/oracle/clone_logs
+
+  Example:
+  rubrik_oracle_backup_rac_clone -s orcl-sr-cluster:ORA19C -r orcl-tgt-1,orcl-tgt-2 -m /home/oracle/restore -n oracln -f /home/oracle/clone_config.txt
+
+
+
+Options:
+  -s, --source_host_db TEXT       The source <host or RAC cluster>:<database>
+                                  [required]
+  -r, --rac_node_list TEXT        Provide the list of RAC DB clone nodes
+                                  separated by ,  [required]
+  -m, --mount_path TEXT           The path used to mount the backup files
+                                  [required]
+  -n, --new_oracle_name TEXT      Name for the cloned live mounted database
+                                  [required]
+  -f, --configuration_file TEXT   Oracle duplicate configuration file, can be
+                                  used for all optional parameters. Overrides
+                                  any set as script options
+  -t, --time_restore TEXT         The point in time for the database clone in
+                                  iso 8601 format (2019-04-30T18:23:21)
+  -o, --oracle_home TEXT          ORACLE_HOME path for this database clone
+  -u, --undo_tbsp TEXT            Name of the UNDO tablespace format (default:
+                                  UNDOTBS)
+  -c, --spfile_loc TEXT           ASM DG for SPFILE (default:+DATA)  +DATA/{ne
+                                  w_oracle_name}/PARAMETERFILE/spfile{new_orac
+                                  le_name}.ora
+  -p, --parallelism TEXT          The degree of parallelism to use for the
+                                  RMAN duplicate
+  --no_spfile                     Restore SPFILE and replace instance specific
+                                  parameters with new DB name
+  --no_file_name_check TEXT       Do not check for existing files and
+                                  overwrite existing files. Potentially
+                                  destructive use with caution
+  --refresh_db TEXT               Refresh and existing database. Overwriting
+                                  exiting database. Requires
+                                  no_file_name_check.
+  --control_files TEXT            Locations for control files. Using full
+                                  paths in single quotes separated by commas
+  --db_file_name_convert TEXT     Remap the datafile locations. Using full
+                                  paths in single quotes separated by commas
+                                  in pairs of 'from location','to location'
+  --log_file_name_convert TEXT    Remap the redo log locations. Using full
+                                  paths in single quotes separated by commas
+                                  in pairs of 'from location','to location'
+  --parameter_value_convert TEXT  Converts parameter names that contain the
+                                  names 'from name','to name'
+  --audit_file_dest TEXT          Set the path for the audit files. This path
+                                  must exist on the target host
+  --core_dump_dest TEXT           Set the path for the core dump files. This
+                                  path must exist on the target host
+  -l, --log_path TEXT             Log directory, if not specified the
+                                  mount_path with be used.
+  -d, --debug_level TEXT          Logging level: DEBUG, INFO, WARNING or
+                                  CRITICAL.
+  --help                          Show this message and exit.
+
+ ```
+
+#### rubrik_oracle_backup_mount_clone
+```
+ rubrik_oracle_backup_mount_clone --help
+Usage: rubrik_oracle_backup_mount_clone [OPTIONS]
+
+      This will live mount the database with a new name. 
+
+      The source database is specified in a host:db format. The backup mount path is required. If the restore time is not
+      provided the most recent recoverable time will be used. The host for the mount clone must be specified along with
+      the directory for the temp, redo, etc. and the new database name. If the Oracle Home is not specified the ORACLE
+      HOME path from the source database will be used. This is for a single instance database only, at present it will
+      NOT work on RAC. It has not yet been tested with ASM.
+
+
+Options:
+  -s, --source_host_db TEXT   The source <host or RAC cluster>:<database>
+                              [required]
+
+  -m, --mount_path TEXT       The path used to mount the backup files
+                              [required]
+
+  -h, --host_target TEXT      Host or RAC cluster name (RAC target required if
+                              source is RAC)  for the Live Mount.  [required]
+
+  -n, --new_oracle_name TEXT  Name for the cloned live mounted database
+                              [required]
+
+  -f, --files_directory TEXT  Location for Oracle files written to the host,
+                              control files, redo, etc.  [required]
+
+  -o, --oracle_home TEXT      ORACLE_HOME path for this database clone
+  -t, --time_restore TEXT     The point in time for the database clone in  iso
+                              8601 format (2019-04-30T18:23:21)
+
+  -d, --debug_level TEXT      Logging level: DEBUG, INFO, WARNING or CRITICAL.
+  --help                      Show this message and exit.
+
+```
 #### rubrik_oracle_db_mount_clone
 ```
  rubrik_oracle_db_mount_clone --help
