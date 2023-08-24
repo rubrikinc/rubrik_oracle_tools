@@ -1,6 +1,0 @@
-venv
-venv_clone
-.idea
-__pycache__
-*.egg-info
-config.json.DS_Store
