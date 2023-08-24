@@ -4,6 +4,7 @@ import logging
 import sys
 import os
 import shutil
+import paramiko
 import platform
 from datetime import datetime
 import configparser
@@ -52,25 +53,25 @@ def cli(source_host_db, rac_node_list, mount_path, new_oracle_name, configuratio
         no_spfile, no_file_name_check, refresh_db, control_files, db_file_name_convert, log_file_name_convert, parameter_value_convert,
         audit_file_dest, core_dump_dest, log_path, debug_level):
     """
-    This will use the Rubrik RMAN backups to do a duplicate (or refresh) of an Oracle Database.
+    This will use the Rubrik RMAN backups to do a duplicate (or refresh)
+    of a source Oracle RAC Database to target RAC database with new name on mentioned RAC nodes of a RAC cluster.
+\b
+      The source database is specified in format <RAC cluster>:<database>. The RAC target nodes, backup mount path,new Oracle DB name,
+      db_file_name_convert, log_file_name_convert, parameter_value_convert, audit_file_dest are required.
+      If the restore time is not provided the most recent recoverable time will be used. Command line Oracle path
+      parameters must be enclosed in both double quotes and each path within enclosed with single quotes. All the optional
+      parameters can be provided in a configuration file. All the flag options must be entered as true false in the
+      configuration file. If the Oracle Home is not specified the ORACLE_HOME path from the source database will be used.
+      If a log directory is not specified, no log will be created.
 
 \b
-    The source database is specified in a host:db format. The backup mount path and the new Oracle DB name are required.
-    RAC Node List  is specified in a racnode1:racnode2 format depending on the number of RAC nodes on which database has to be clone on a given RAC cluster nodes
-    If the restore time is not provided the most recent recoverable time will be used. Command line Oracle path
-    parameters must be enclosed in both double quotes and each path within enclosed with single quotes. All the optional
-    parameters can be provided in a configuration file. All the flag options must be entered as true false in the
-    configuration file. If the Oracle Home is not specified the ORACLE_HOME path from the source database will be used.
-    If a log directory is not specified, no log will be created.
-\b
-Example:
-rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1:racnode2 -m /u02/oradata/restore -n oracln -t 2020-11-06T00:06:00 -p 8
--l /home/oracle/clone_logs --no_file_name_check --refresh_db
---db_file_name_convert "'/u02/oradata/ora1db/','/u02/oradata/oracln/'"
---control_files "'/u02/oradata/oracln/control01.ctl','/u02/oradata/oracln/control02.ctl'"
---log_file_name_convert "'/u02/oradata/ora1db/','u02/oradata/oracln/'"
---audit_file_dest "'/u01/app/oracle/admin/clonedb/adump'"
---core_dump_dest "'/u01/app/oracle/admin/clonedb/cdump'"
+  Example:
+  rubrik_oracle_backup_rac_clone -s orcl-sr-cluster:ORA19C -r orcl-tgt-1,orcl-tgt-2 -m /home/oracle/restore   -t 2023-08-06T00:06:00
+  -n clonetst -l /home/oracle/clone_logs  -p 8 --audit_file_dest "'/home/oracle/adump'" --db_file_name_convert "'+DATA','+DATA1'"
+  --log_file_name_convert "'+DATA','+DATA1','+RECO','+RECO1'" --parameter_value_convert "'ORA19C','clonetst'" --refresh_db --no_file_name_chec
+    This will use the Rubrik RMAN backups to do a duplicate (or refresh) of an Oracle Database.
+
+
 
 \b
 Example Configuration File:
@@ -104,7 +105,8 @@ Example Configuration File:
 # log_path = /home/oracle/clone_logs
 \b
 Example:
-rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u02/oradata/restore -n oracln -f /home/oracle/clone_config.txt
+rubrik_oracle_backup_rac_clone -s orcl-sr-cluster:ORA19C -r orcl-tgt-1,orcl-tgt-2 -m /home/oracle/restore -n oracln -f /home/oracle/clone_config.txt
+
 
     """
     numeric_level = getattr(logging, debug_level.upper(), None)
@@ -168,9 +170,9 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
             core_dump_dest = configuration['parameters']['core_dump_dest']
         logger.debug("Parameters for duplicate loaded from file: {}.".format(configuration))
 
-    if not (db_file_name_convert and log_file_name_convert and parameter_value_convert):
+    if not (db_file_name_convert and log_file_name_convert and parameter_value_convert and audit_file_dest ):
         raise RubrikOracleBackupMountCloneError(
-            "All of the convert parameters: db_file_name_convert, log_file_name_convert, parameter_value_convert must be supplied")
+            "All of the convert parameters: db_file_name_convert, log_file_name_convert, parameter_value_convert and audit_file_dest must be supplied")
 
     racinst_dict = {}  # Initialize an empty dictionary
     for i, node_name in enumerate(rac_node_names, start=1):
@@ -189,6 +191,8 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     # Get the target host name which is the host running the command
     host_target = platform.uname()[1].split('.')[0]
     logger.debug("The hostname used for the target host is {}".format(host_target))
+    # OS Account executing the script
+    uname = os.getlogin()
     if len(new_oracle_name) > 8:
         logger.debug(
             "The new oracle name: {} is too long. Oracle names must be 8 characters or less. Aborting clone".format(
@@ -315,6 +319,31 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
     if log_file_name_convert:
         duplicate_commands = duplicate_commands + "set  log_file_name_convert = {} ".format(log_file_name_convert)
     if audit_file_dest:
+        for rac_node in rac_node_names:
+          if rac_node == host_target:
+            # Local host, no need for SSH
+             if not os.path.exists(audit_file_dest):
+                logger.info(f"Creating Directory '{audit_file_dest}'  on {host_target}.")
+                os.makedirs(audit_file_dest)  # Create the directory locally
+             else:
+               logger.info(f"Directory '{audit_file_dest}' already exists on {host_target}.")
+          else:
+             try:
+               ssh_client = paramiko.SSHClient()
+               ssh_client.load_system_host_keys()
+               ssh_client.connect(rac_node,username=uname)
+               # Check if the audit_file_dest directory exists
+               stdin, stdout, stderr = ssh_client.exec_command(f'test -d {audit_file_dest} && echo "exists" || echo "not exists"')
+               directory_status = stdout.read().decode().strip()
+               # If the directory doesn't exist, create it
+               if directory_status == 'not exists':
+                     ssh_client.exec_command(f'mkdir -p {audit_file_dest}')
+                     logger.info(f"Directory '{audit_file_dest}' created on {rac_node}.")
+               else:
+                     logger.warning(f"Directory '{audit_file_dest}' already exists on {rac_node}.")
+               ssh_client.close()   
+             except Exception as e:
+                print(f"Error on {rac_node}: {str(e)}")
         duplicate_commands = duplicate_commands + "set  audit_file_dest = {} ".format(audit_file_dest)
     if core_dump_dest:
         duplicate_commands = duplicate_commands + "set  core_dump_dest = {} ".format(core_dump_dest)
@@ -351,7 +380,7 @@ rubrik_oracle_backup_clone -s jz-sourcehost-1:ora1db -r racnode1,racnode2 -m /u0
             file.write(f"{variable_name}.thread = {variable_value['thread']}\n")
             file.write(f"{variable_name}.undo_tablespace = '{variable_value['undo_tablespace']}'\n")
     # Create spfile from temp_init_file with RAC settings in shared area
-    sp_file_path = f"{spfile_loc}/{new_oracle_name}/PARAMETERFILE/spfile{new_oracle_name}.ora"  # Specify the sp_file_path\
+    sp_file_path = f"{spfile_loc}/spfile{new_oracle_name}.ora"  # Specify the sp_file_path\
     sql_command = f"create spfile='{sp_file_path}' from pfile='{temp_init_file}';"
     sql_return = database.sqlplus_sysdba(oracle_home, sql_command)
     logger.info(sql_return)
