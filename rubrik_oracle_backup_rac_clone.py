@@ -446,8 +446,6 @@ rubrik_oracle_backup_rac_clone -s orcl-sr-cluster:ORA19C -r orcl-tgt-1,orcl-tgt-
             logger.debug(f"Error for node {node_name}: {e}")
 
     # Restart database using srvctl
-    shut_command = f"srvctl stop database -d {new_oracle_name}"
-    os.system(shut_command)
     logger.warning(f"Starting RAC database {new_oracle_name} on RAC nodes {rac_node_list}")
     start_command = f"srvctl start database -d {new_oracle_name}"
     os.system(start_command)
