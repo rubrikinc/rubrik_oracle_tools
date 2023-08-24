@@ -16,7 +16,8 @@ setup(
         'Click',
         'pytz',
         'yaspin',
-        'tabulate'
+        'tabulate',
+        'paramiko'
     ],
     entry_points='''
         [console_scripts]
