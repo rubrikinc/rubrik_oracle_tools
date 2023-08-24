@@ -1,0 +1,7 @@
+venv
+.idea
+__pycache__
+*.egg-info
+.DS_Store
+config.json
+.DS_Store
