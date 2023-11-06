@@ -2,11 +2,12 @@ import rbs_oracle_common
 import click
 import logging
 import sys
+from tabulate import tabulate
 
 
 @click.command()
-@click.option('--source_host_db', '-s', type=str, required=True,  help='The source <host or RAC cluster>:<database>')
-@click.option('--mounted_host', '-m', type=str, required=True,  help='The host with the live mount to remove')
+@click.option('--source_host_db', '-s', type=str, required=False,  help='The source <host or RAC cluster>:<database>')
+@click.option('--mounted_host', '-m', type=str, required=False,  help='The host with the live mount to remove')
 @click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
 @click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING or CRITICAL.')
@@ -30,23 +31,42 @@ def cli(source_host_db, mounted_host, keyfile, insecure, debug_level):
     logger.addHandler(ch)
 
     rubrik = rbs_oracle_common.RubrikConnection(keyfile, insecure)
-    source_host_db = source_host_db.split(":")
-    mount = rbs_oracle_common.RubrikRbsOracleMount(rubrik, source_host_db[1], source_host_db[0], mounted_host)
-    live_mount_ids = mount.get_oracle_live_mount_id()
-    if not live_mount_ids:
-        raise RubrikOracleMountInfoError("No live mounts found for {} live mounted on {}. ".format(source_host_db[1], mounted_host))
+    if source_host_db and mounted_host:
+        source_host_db = source_host_db.split(":")
+        mount = rbs_oracle_common.RubrikRbsOracleMount(rubrik, source_host_db[1], source_host_db[0], mounted_host)
+        live_mount_ids = mount.get_oracle_live_mount_id()
+        if not live_mount_ids:
+            raise RubrikOracleMountInfoError("No live mounts found for {} live mounted on {}. ".format(source_host_db[1], mounted_host))
+        else:
+            print("Live mounts of {} mounted on {}:".format(source_host_db[1], mounted_host))
+            for live_mount_id in live_mount_ids:
+                logger.info("Getting info for mount with id: {}.".format(live_mount_id))
+                mount_information = mount.get_live_mount_info(live_mount_id)
+                logger.debug("mount_info: {0}".format(mount_information))
+                print("Source DB: {}  Source Host: {}  Mounted Host: {}  Owner: {}  Created: {}  Status: {}  id: {}".format(
+                    source_host_db[1], source_host_db[0], mounted_host, mount_information.get('ownerName', 'None'),
+                    mount_information['creationDate'], mount_information['status'], mount_information['id']))
+            rubrik.delete_session()
+            return
     else:
-        print("Live mounts of {} mounted on {}:".format(source_host_db[1], mounted_host))
-        for live_mount_id in live_mount_ids:
-            logger.info("Getting info for mount with id: {}.".format(live_mount_id))
-            mount_information = mount.get_live_mount_info(live_mount_id)
-            logger.debug("mount_info: {0}".format(mount_information))
-            print("Source DB: {}  Source Host: {}  Mounted Host: {}  Owner: {}  Created: {}  Status: {}  id: {}".format(
-                source_host_db[1], source_host_db[0], mounted_host, mount_information.get('ownerName', 'None'),
-                mount_information['creationDate'], mount_information['status'], mount_information['id']))
+        logger.debug("Source and target host not supplied. Getting full list of mounts")
+        oracle_live_mounts = rubrik.connection.get('internal','/oracle/db/mount')
+        logger.debug("All mounts: {}".format(oracle_live_mounts))
+        live_mounts = []
+        live_mount_headers = ["Source DB", "Mounted Host", "Files Only", "Created"]
+        for mount in oracle_live_mounts['data']:
+            db_element = [''] * 4
+            db_element[0] = mount.get('sourceDatabaseName', "NA")
+            db_element[1] = mount.get('targetHostname', "NA")
+            db_element[2] = mount.get('isFilesOnlyMount', "NA")
+            db_element[3] = mount.get('creationDate', "NA")
+            live_mounts.append(db_element)
+        live_mounts.sort(key=lambda x: (x[0], x[1]))
+        print("*" * 100)
+        print(tabulate(live_mounts, headers=live_mount_headers))
+        print("*" * 100)
         rubrik.delete_session()
         return
-
 
 class RubrikOracleMountInfoError(rbs_oracle_common.NoTraceBackWithLineNumber):
     """
