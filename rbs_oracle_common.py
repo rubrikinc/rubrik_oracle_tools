@@ -607,7 +607,6 @@ class RubrikRbsOracleDatabase:
         Returns:
             host_id (str): The host id
         """
-        # hostname = hostname.split('.')[0]
         host_info = self.rubrik.connection.get('internal', '/oracle/host?name={}'.format(hostname), timeout=self.cdm_timeout)
         self.logger.debug("host_info returned for hostname {}: {}".format(hostname,host_info))
         host_id = ''
