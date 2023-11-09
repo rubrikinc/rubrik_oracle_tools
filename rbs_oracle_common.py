@@ -607,16 +607,23 @@ class RubrikRbsOracleDatabase:
         Returns:
             host_id (str): The host id
         """
-        hostname = hostname.split('.')[0]
+        # hostname = hostname.split('.')[0]
         host_info = self.rubrik.connection.get('internal', '/oracle/host?name={}'.format(hostname), timeout=self.cdm_timeout)
+        self.logger.debug("host_info returned for hostname {}: {}".format(hostname,host_info))
         host_id = ''
+        matched_hosts = []
         if host_info['total'] > 0:
-            for hosts in host_info['data']:
-                if hosts['primaryClusterId'] == primary_cluster_id and hosts['status'] == 'Connected' and hosts['name'].split('.')[0] == hostname:
-                    host_id = hosts['id']
-                    break
-        if not host_id:
+            for host in host_info['data']:
+                if host['primaryClusterId'] == primary_cluster_id and host['status'] == 'Connected' and hostname in host['name'] :
+                    matched_hosts.append(host)
+        if len(matched_hosts) == 0:
+            self.rubrik.delete_session()
             raise RbsOracleCommonError("The host: {} was not found on the Rubrik CDM.".format(hostname))
+        elif len(matched_hosts) == 1:
+            host_id = matched_hosts[0]['id']
+        else:
+            self.rubrik.delete_session()
+            raise RbsOracleCommonError("Multiple hosts with name: {} was found on the Rubrik CDM. Try using full FQDN.".format(hostname))
         return host_id
 
     def get_rac_id(self, primary_cluster_id, rac_cluster_name):
@@ -634,6 +641,7 @@ class RubrikRbsOracleDatabase:
         rac_info = self.rubrik.connection.get('internal', '/oracle/rac?name={}'.format(rac_cluster_name), timeout=self.cdm_timeout)
         rac_id = ''
         if rac_info['total'] == 0:
+            self.rubrik.delete_session()
             raise RbsOracleCommonError(
                 "The target: {} either was not found or is not a RAC cluster.".format(rac_cluster_name))
         elif rac_info['total'] > 1:
@@ -675,6 +683,7 @@ class RubrikRbsOracleDatabase:
                         target_id = hosts['id']
                         break
         if not target_id:
+            self.rubrik.delete_session()
             raise RbsOracleCommonError("The host or RAC cluster: {} was not found on the Rubrik CDM.".format(target_name))
         return target_id
 
@@ -734,6 +743,7 @@ class RubrikRbsOracleDatabase:
                                     break
 
         if not target_id:
+            self.rubrik.delete_session()
             raise RbsOracleCommonError("The host: {} was not found on the Rubrik CDM.".format(target_name))
         return target_id
 
@@ -748,6 +758,7 @@ class RubrikRbsOracleDatabase:
             with yaspin(Spinners.line, text='Request status: {}'.format(oracle_request['status'])):
                 time.sleep(10)
         if oracle_request['status'] not in terminal_states:
+            self.rubrik.delete_session()
             raise RbsOracleCommonError(
                 "\nTimeout: Async request status has been {0} for longer than the timeout period of {1} minutes. The request will remain active (current status: {0})  and the script will exit.".format(
                     oracle_request['status'], timeout))
@@ -766,6 +777,7 @@ class RubrikRbsOracleDatabase:
                 with yaspin(Spinners.line, text='Effective SLA: {}'.format(db_info['effectiveSlaDomainName'])):
                     time.sleep(10)
             if db_info['effectiveSlaDomainName'] == 'Unprotected':
+                self.rubrik.delete_session()
                 raise RbsOracleCommonError(
                     "\nTimeout: Async request status has been {0} for longer than the timeout period of {1} minutes. The request will remain active (current effective SLA: {0})  and the script will exit.".format(
                         db_info['effectiveSlaDomainName'], timeout))
@@ -779,6 +791,7 @@ class RubrikRbsOracleDatabase:
                 with yaspin(Spinners.line, text='Effective SLA: {}'.format(db_info['effectiveSlaDomainName'])):
                     time.sleep(10)
             if db_info['effectiveSlaDomainName'] != pending_sla:
+                self.rubrik.delete_session()
                 raise RbsOracleCommonError(
                     "\nTimeout: Async request status has been {0} for longer than the timeout period of {1} minutes. The request will remain active (current effective SLA: {0})  and the script will exit.".format(
                         db_info['effectiveSlaDomainName'], timeout))
@@ -1026,6 +1039,7 @@ class RubrikRbsOracleDatabase:
         if type(raw_file) is str:
             raw_file = raw_file.encode("ascii")
         elif type(raw_file) is not bytes:
+            self.rubrik.delete_session()
             raise RbsOracleCommonError("Trying to base64 encode a file of the wrong type: {}".format(type(raw_file)))
         base64_file = base64.b64encode(raw_file).decode('ascii')
         return base64_file
@@ -1169,6 +1183,7 @@ class RubrikRbsRplOracleMount():
             with yaspin(Spinners.line, text='Request status: {}'.format(oracle_request['status'])):
                 time.sleep(10)
         if oracle_request['status'] not in terminal_states:
+            self.rubrik.delete_session()
             raise RbsOracleCommonError(
                 "\nTimeout: Async request status has been {0} for longer than the timeout period of {1} minutes. The request will remain active (current status: {0})  and the script will exit.".format(
                     oracle_request['status'], timeout))
@@ -1203,12 +1218,14 @@ class RubrikRbsOracleHost:
         host_id = None
         if hosts['total'] < 1:
             self.logger.debug("No host ID found for host {}...".format(self.oracle_host))
+            self.rubrik.delete_session()
             raise RbsOracleCommonError(
                 "The host object '{}' was not found on the Rubrik cluster.".format(self.oracle_host))
         elif hosts['total'] == 1:
             host_id = hosts['data'][0]['id']
         elif hosts['total'] > 1:
             self.logger.debug("Multiple host IDs found for host {}...".format(self.oracle_host))
+            self.rubrik.delete_session()
             raise RbsOracleCommonError(
                 "Multiple host IDs found for '{}' on the Rubrik cluster.".format(self.oracle_host))
         if host_id:
@@ -1216,6 +1233,7 @@ class RubrikRbsOracleHost:
                 "Found Host id: {0} for host: {1}".format(host_id, self.oracle_host))
             return host_id
         else:
+            self.rubrik.delete_session()
             raise RbsOracleCommonError(
                 "No ID found for a host with name {}.".format(self.oracle_host))
 
@@ -1254,6 +1272,7 @@ class Timer:
     def start(self) -> None:
         """Start a new timer"""
         if self._start_time is not None:
+            self.rubrik.delete_session()
             raise TimerError(f"Timer is running. Use .stop() to stop it")
 
         self._start_time = time.perf_counter()
@@ -1261,6 +1280,7 @@ class Timer:
     def stop(self) -> float:
         """Stop the timer, and report the elapsed time"""
         if self._start_time is None:
+            self.rubrik.delete_session()
             raise TimerError(f"Timer is not running. Use .start() to start it")
 
         # Calculate elapsed time
