@@ -80,15 +80,6 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
             aco_config.read_string('[ACO]' + f.read())
         logger.debug("ACO Config: {0}".format(aco_config.items('ACO')))
         aco_parameters = aco_config.items('ACO')
-        # if not database.v6:
-        #     try:
-        #         aco_file = open(aco_file_path, "r").read()
-        #     except IOError as e:
-        #         raise RubrikOracleDBCloneError("I/O error({0}): {1}".format(e.errno, e.strerror))
-        #     except Exception:
-        #         raise RubrikOracleDBCloneError("Unexpected error: {}".format(sys.exc_info()[0]))
-        #     base64_aco_byte_file = base64.b64encode(aco_file.encode("utf-8"))
-        #     base64_aco_file = str(base64_aco_byte_file, "utf-8")
     if pfile:
         logger.warning("Using custom PFILE File: {}.".format(pfile))
         if aco_parameters:
