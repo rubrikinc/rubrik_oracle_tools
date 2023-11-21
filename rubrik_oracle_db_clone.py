@@ -80,15 +80,15 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
             aco_config.read_string('[ACO]' + f.read())
         logger.debug("ACO Config: {0}".format(aco_config.items('ACO')))
         aco_parameters = aco_config.items('ACO')
-        if not database.v6:
-            try:
-                aco_file = open(aco_file_path, "r").read()
-            except IOError as e:
-                raise RubrikOracleDBCloneError("I/O error({0}): {1}".format(e.errno, e.strerror))
-            except Exception:
-                raise RubrikOracleDBCloneError("Unexpected error: {}".format(sys.exc_info()[0]))
-            base64_aco_byte_file = base64.b64encode(aco_file.encode("utf-8"))
-            base64_aco_file = str(base64_aco_byte_file, "utf-8")
+        # if not database.v6:
+        #     try:
+        #         aco_file = open(aco_file_path, "r").read()
+        #     except IOError as e:
+        #         raise RubrikOracleDBCloneError("I/O error({0}): {1}".format(e.errno, e.strerror))
+        #     except Exception:
+        #         raise RubrikOracleDBCloneError("Unexpected error: {}".format(sys.exc_info()[0]))
+        #     base64_aco_byte_file = base64.b64encode(aco_file.encode("utf-8"))
+        #     base64_aco_file = str(base64_aco_byte_file, "utf-8")
     if pfile:
         logger.warning("Using custom PFILE File: {}.".format(pfile))
         if aco_parameters:
@@ -113,10 +113,7 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
         else:
             logger.warning("ORACLE_HOME must be specified for a DG Group.")
             raise RubrikOracleDBCloneError("When cloning a DG Group database, the ORACLE_HOME must be provided")
-    if oracle_home and database.v6:
         logger.debug("ORACLE_HOME is {0}".format(oracle_home))
-    elif oracle_home:
-        raise RubrikOracleDBCloneError("The Oracle Home parameter is not supported with pre 6.0 CDM.")
     if new_name:
         logger.debug("Using new_name: {0}".format(new_name))
         if aco_config:
@@ -146,7 +143,7 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
     logger.debug("db_clone parameters host_id={0}, time_ms={1}, new_name={2}, pfile={3}, aco_file={4}, "
                  "aco_parameters={5} oracle_home={6}".format(host_id, time_ms, new_name, pfile, aco_file_path,
                                                              aco_parameters, oracle_home))
-    db_clone_info = database.db_clone(host_id=host_id, time_ms=time_ms, new_name=new_name, pfile=pfile, aco_file=base64_aco_file, aco_parameters=aco_parameters, oracle_home=oracle_home)
+    db_clone_info = database.db_clone(host_id=host_id, time_ms=time_ms, new_name=new_name, pfile=pfile, aco_parameters=aco_parameters, oracle_home=oracle_home)
     logger.debug(db_clone_info)
     cluster_timezone = pytz.timezone(rubrik.timezone)
     utc = pytz.utc
