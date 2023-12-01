@@ -425,7 +425,12 @@ class RubrikRbsOracleDatabase:
         Returns:
             oracle_db_recoverable_range_info (dict): The Rubrik CDM database available snapshots.
         """
-        oracle_db_snapshot_info = self.rubrik.connection.get('internal', '/oracle/db/{}/snapshot'.format(self.oracle_id), timeout=self.cdm_timeout)
+        self.logger.debug("API call: internal/oracle/db/{}/snapshot".format(self.oracle_id))
+        try:
+            oracle_db_snapshot_info = self.rubrik.connection.get('internal', '/oracle/db/{}/snapshot'.format(self.oracle_id), timeout=self.cdm_timeout)
+        except Exception as err:
+            self.rubrik.delete_session()
+            raise RbsOracleCommonError(f"Method get_oracle_db_snapshots failed for id: {self.oracle_id} with Unexpected {err=}, {type(err)=}")
         return oracle_db_snapshot_info
 
     def oracle_db_snapshot(self, sla_id, force):
@@ -569,8 +574,10 @@ class RubrikRbsOracleDatabase:
                     stripped_parameter = parameter[1]
                 payload["advancedRecoveryConfigMap"][parameter[0]] = stripped_parameter
         if oracle_home:
-            # payload["advancedRecoveryConfigMap"]["ORACLE_HOME"] = oracle_home.replace("'", "")
-            payload["advancedRecoveryConfigMap"] = {"ORACLE_HOME": oracle_home.replace("'", "")}
+            if not aco_parameters:
+                payload["advancedRecoveryConfigMap"] = {"ORACLE_HOME": oracle_home.replace("'", "")}
+            else:
+                payload["advancedRecoveryConfigMap"]["ORACLE_HOME"] = oracle_home.replace("'", "")
         self.logger.debug("RBS oracle common payload: {}".format(payload))
         db_clone_info = self.rubrik.connection.post('internal', '/oracle/db/{}/export'.format(self.oracle_id),
                                                       payload, timeout=self.cdm_timeout)
