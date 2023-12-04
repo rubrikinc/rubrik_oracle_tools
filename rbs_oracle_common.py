@@ -430,7 +430,7 @@ class RubrikRbsOracleDatabase:
             oracle_db_snapshot_info = self.rubrik.connection.get('internal', '/oracle/db/{}/snapshot'.format(self.oracle_id), timeout=self.cdm_timeout)
         except Exception as err:
             self.rubrik.delete_session()
-            raise RbsOracleCommonError(f"Method get_oracle_db_snapshots failed for id: {self.oracle_id} with Unexpected {err=}, {type(err)=}")
+            raise RbsOracleCommonError("Method get_oracle_db_snapshots failed for id: {} with Unexpected {}, {}".format(self.oracle_id, err))
         return oracle_db_snapshot_info
 
     def oracle_db_snapshot(self, sla_id, force):
@@ -534,7 +534,7 @@ class RubrikRbsOracleDatabase:
             live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         except Exception as err:
             self.rubrik.delete_session()
-            raise RbsOracleCommonError(f"Method live_mount_info failed for id: {self.oracle_id} with Unexpected {err=}, {type(err)=}")
+            raise RbsOracleCommonError("Method live_mount_info failed for id: {} with Unexpected {}".format(self.oracle_id, err))
         return live_mount_info
 
     def db_clone(self, host_id, time_ms, files_only=False, mount_path=None, new_name=None, pfile=None, aco_parameters=None, oracle_home=None):
@@ -585,7 +585,7 @@ class RubrikRbsOracleDatabase:
             db_clone_info = self.rubrik.connection.post('internal', '/oracle/db/{}/export'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
         except Exception as err:
             self.rubrik.delete_session()
-            raise RbsOracleCommonError(f"Method db_clone_info failed for id: {self.oracle_id} with Unexpected {err=}, {type(err)=}")
+            raise RbsOracleCommonError("Method db_clone_info failed for id: {} with Unexpected {}".format(self.oracle_id, err))
         return db_clone_info
 
     def oracle_validate(self, host_id, time_ms):

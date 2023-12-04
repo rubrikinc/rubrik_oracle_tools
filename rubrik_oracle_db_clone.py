@@ -94,8 +94,7 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
     else:
         target_name = database.database_name
     logger.warning("Starting Clone of {0} to {1} on {2}".format(database.database_name, target_name, host_target))
-    logger.debug("db_clone parameters host_id={0}, time_ms={1}, new_name={2}, pfile={3}, aco_file={4}, "
-                 "aco_parameters={5} oracle_home={6}".format(host_id, time_ms, new_name, pfile, aco_parameters, oracle_home))
+    logger.debug("db_clone parameters host_id={0}, time_ms={1}, new_name={2}, pfile={3}, aco_parameters={4} oracle_home={5}".format(host_id, time_ms, new_name, pfile, aco_parameters, oracle_home))
     db_clone_info = database.db_clone(host_id=host_id, time_ms=time_ms, new_name=new_name, pfile=pfile, aco_parameters=aco_parameters, oracle_home=oracle_home)
     logger.debug(db_clone_info)
     cluster_timezone = pytz.timezone(rubrik.timezone)
