@@ -530,10 +530,14 @@ class RubrikRbsOracleDatabase:
         if aco_config_map:
             payload["advancedRecoveryConfigMap"] = aco_config_map
         self.logger.debug("RBS oracle common payload: {}".format(payload))
-        live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
+        try:
+            live_mount_info = self.rubrik.connection.post('internal', '/oracle/db/{}/mount'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
+        except Exception as err:
+            self.rubrik.delete_session()
+            raise RbsOracleCommonError(f"Method live_mount_info failed for id: {self.oracle_id} with Unexpected {err=}, {type(err)=}")
         return live_mount_info
 
-    def db_clone(self, host_id, time_ms, files_only=False, mount_path=None, new_name=None, pfile=None, aco_file=None, aco_parameters=None, oracle_home=None):
+    def db_clone(self, host_id, time_ms, files_only=False, mount_path=None, new_name=None, pfile=None, aco_parameters=None, oracle_home=None):
         """
         Clones an Oracle database using RBS automation.
 
@@ -562,8 +566,6 @@ class RubrikRbsOracleDatabase:
             payload["cloneDbName"] = new_name.replace("'", "")
         if pfile:
             payload["customPfilePath"] = pfile.replace("'", "")
-        if aco_file:
-            payload["advancedRecoveryConfigBase64"] = aco_file.replace("'", "")
         if aco_parameters:
             payload["advancedRecoveryConfigMap"] = {}
             for parameter in aco_parameters:
@@ -579,8 +581,11 @@ class RubrikRbsOracleDatabase:
             else:
                 payload["advancedRecoveryConfigMap"]["ORACLE_HOME"] = oracle_home.replace("'", "")
         self.logger.debug("RBS oracle common payload: {}".format(payload))
-        db_clone_info = self.rubrik.connection.post('internal', '/oracle/db/{}/export'.format(self.oracle_id),
-                                                      payload, timeout=self.cdm_timeout)
+        try:
+            db_clone_info = self.rubrik.connection.post('internal', '/oracle/db/{}/export'.format(self.oracle_id), payload, timeout=self.cdm_timeout)
+        except Exception as err:
+            self.rubrik.delete_session()
+            raise RbsOracleCommonError(f"Method db_clone_info failed for id: {self.oracle_id} with Unexpected {err=}, {type(err)=}")
         return db_clone_info
 
     def oracle_validate(self, host_id, time_ms):

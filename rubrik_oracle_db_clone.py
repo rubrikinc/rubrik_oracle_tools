@@ -88,52 +88,14 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
                 if config[0].upper() != 'ORACLE_HOME' and config[0].upper() != 'SPFILE_LOCATION':
                     raise RubrikOracleDBCloneError("When using a custom PFILE the only parameters allowed in the ACO "
                                                    "file are ORACLE_HOME and SPFILE_LOCATION.")
-    logger.debug("dataGuardType is {0}".format(oracle_db_info['dataGuardType']))
-    # If source is a Data Guard Group, check to be sure an ORACLE_HOME is provided
-    if oracle_db_info['dataGuardType'] == 'DataGuardGroup':
-        if oracle_home:
-            logger.debug("DG GROUP USING ORACLE_HOME OPTION")
-        elif aco_config:
-            logger.debug("Source is a DG Group and ACO File is being used. Checking for ORACLE_HOME...")
-            if aco_config.has_option('ACO','ORACLE_HOME'):
-                logger.debug("ORACLE_HOME: {0} is present in the ACO File.".format(aco_config.get('ACO','ORACLE_HOME')))
-                oracle_home = aco_config.get('ACO', 'ORACLE_HOME')
-            else:
-                logger.warning("ORACLE_HOME is not set in the ACO File: {0} or provided as an option.".format(aco_file_path))
-                raise RubrikOracleDBCloneError("When cloning a DG Group database, the ORACLE_HOME must be provided")
-        else:
-            logger.warning("ORACLE_HOME must be specified for a DG Group.")
-            raise RubrikOracleDBCloneError("When cloning a DG Group database, the ORACLE_HOME must be provided")
-        logger.debug("ORACLE_HOME is {0}".format(oracle_home))
     if new_name:
         logger.debug("Using new_name: {0}".format(new_name))
-        if aco_config:
-            if all(key.lower() in aco_config['ACO'] for key in ('parameter_value_convert', 'db_file_name_convert', 'log_file_name_convert')):
-                logger.debug("Using a new database name with an ACO file. Required parameters, "
-                             "parameter_value_convert, db_file_name_convert, and log_file_name_convert are present")
-            elif all(key.lower() in aco_config['ACO'] for key in ('control_files', 'db_create_file_dest')):
-                logger.debug("Using a new database name with an ACO file. Required parameters control_files and "
-                             "db_create_file_dest are present.")
-            else:
-                raise RubrikOracleDBCloneError("Using a new database name requires either an ACO file or a custom "
-                                               "pfile with db_file_name_convert, log_file_name_convert, "
-                                               "parameter_value_convert or control_files, db_create_file_dest")
-        elif pfile:
-            logger.warning("Using a new database name with a custom pfile. Required parameters, "
-                           "parameter_value_convert, db_file_name_convert, and log_file_name_convert or control_files "
-                           "and db_create_file_dest.")
-        else:
-            raise RubrikOracleDBCloneError("Using a new database name requires either an ACO file or a custom pfile. "
-                                           "The following parameters are required: db_file_name_convert, "
-                                           "log_file_name_convert, parameter_value_convert or control_files, "
-                                           "db_create_file_dest.")
         target_name = new_name
     else:
         target_name = database.database_name
     logger.warning("Starting Clone of {0} to {1} on {2}".format(database.database_name, target_name, host_target))
     logger.debug("db_clone parameters host_id={0}, time_ms={1}, new_name={2}, pfile={3}, aco_file={4}, "
-                 "aco_parameters={5} oracle_home={6}".format(host_id, time_ms, new_name, pfile, aco_file_path,
-                                                             aco_parameters, oracle_home))
+                 "aco_parameters={5} oracle_home={6}".format(host_id, time_ms, new_name, pfile, aco_parameters, oracle_home))
     db_clone_info = database.db_clone(host_id=host_id, time_ms=time_ms, new_name=new_name, pfile=pfile, aco_parameters=aco_parameters, oracle_home=oracle_home)
     logger.debug(db_clone_info)
     cluster_timezone = pytz.timezone(rubrik.timezone)
