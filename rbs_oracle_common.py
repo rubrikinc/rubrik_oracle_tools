@@ -569,12 +569,6 @@ class RubrikRbsOracleDatabase:
         if aco_parameters:
             payload["advancedRecoveryConfigMap"] = {}
             for parameter in aco_parameters:
-                # if "_CONVERT" not in parameter[0].upper():
-                #     stripped_parameter = parameter[1].replace("'", "")
-                #     stripped_parameter = stripped_parameter.replace('"', '')
-                # else:
-                #     stripped_parameter = parameter[1]
-                # payload["advancedRecoveryConfigMap"][parameter[0]] = stripped_parameter
                 payload["advancedRecoveryConfigMap"][parameter[0]] = parameter[1]
         if oracle_home:
             if not aco_parameters:
