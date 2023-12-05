@@ -569,12 +569,13 @@ class RubrikRbsOracleDatabase:
         if aco_parameters:
             payload["advancedRecoveryConfigMap"] = {}
             for parameter in aco_parameters:
-                if "_CONVERT" not in parameter[0].upper():
-                    stripped_parameter = parameter[1].replace("'", "")
-                    stripped_parameter = stripped_parameter.replace('"', '')
-                else:
-                    stripped_parameter = parameter[1]
-                payload["advancedRecoveryConfigMap"][parameter[0]] = stripped_parameter
+                # if "_CONVERT" not in parameter[0].upper():
+                #     stripped_parameter = parameter[1].replace("'", "")
+                #     stripped_parameter = stripped_parameter.replace('"', '')
+                # else:
+                #     stripped_parameter = parameter[1]
+                # payload["advancedRecoveryConfigMap"][parameter[0]] = stripped_parameter
+                payload["advancedRecoveryConfigMap"][parameter[0]] = parameter[1]
         if oracle_home:
             if not aco_parameters:
                 payload["advancedRecoveryConfigMap"] = {"ORACLE_HOME": oracle_home.replace("'", "")}
@@ -762,6 +763,8 @@ class RubrikRbsOracleDatabase:
         timeout_start = time.time()
         terminal_states = ['FAILED', 'CANCELED', 'SUCCEEDED']
         oracle_request = None
+        self.logger.debug("Waiting for event id: {} to complete. Waiting will timeout in {} minutes".format(requests_id, timeout))
+        self.logger.debug("Current time: {}, timeout_start: {}, timeout * 60: {}, timeout type: {}".format(time.time(), timeout_start, (timeout * 60), type(timeout)))
         while time.time() < timeout_start + (timeout * 60):
             oracle_request = self.rubrik.connection.get('internal', '/oracle/request/{}'.format(requests_id), timeout=self.cdm_timeout)
             if oracle_request['status'] in terminal_states:

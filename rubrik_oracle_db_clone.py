@@ -17,7 +17,7 @@ from configparser import ConfigParser
 @click.option('--aco_file_path', '-a', type=str, help='ACO file path for parameter changes')
 @click.option('--oracle_home', '-o', type=str, help='ORACLE_HOME on destination host. Required as option or in ACO File if source is a Data Guard Group.')
 @click.option('--wait', is_flag=True, help='Wait for clone to complete. Times out at wait time.')
-@click.option('--wait_time', type=str, default=1800, help='Time for script to wait for clone to complete. Script exits but clone continues at time out.')
+@click.option('--wait_time', type=int, default=1800, help='Time for script to wait for clone to complete. Script exits but clone continues at time out.')
 @click.option('--keyfile', '-k', type=str, required=False,  help='The connection keyfile path')
 @click.option('--insecure', is_flag=True,  help='Flag to use insecure connection')
 @click.option('--debug_level', '-d', type=str, default='WARNING', help='Logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL.')
