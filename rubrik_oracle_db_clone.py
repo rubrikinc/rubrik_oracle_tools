@@ -86,6 +86,7 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
             logger.debug("ACO Parameters: {0}".format(aco_parameters))
             for config in aco_parameters:
                 if config[0].upper() != 'ORACLE_HOME' and config[0].upper() != 'SPFILE_LOCATION':
+                    rubrik.delete_session()
                     raise RubrikOracleDBCloneError("When using a custom PFILE the only parameters allowed in the ACO "
                                                    "file are ORACLE_HOME and SPFILE_LOCATION.")
     if new_name:
@@ -109,6 +110,7 @@ def cli(source_host_db, host_target, time_restore, new_name, pfile, aco_file_pat
         db_clone_info = database.async_requests_wait(db_clone_info['id'], wait_time)
         logger.warning("Async request completed with status: {}".format(db_clone_info['status']))
         if db_clone_info['status'] != "SUCCEEDED":
+            rubrik.delete_session()
             raise RubrikOracleDBCloneError(
                 "Clone of Oracle DB did not complete successfully. Clone ended with status {}".format(
                     db_clone_info['status']))
